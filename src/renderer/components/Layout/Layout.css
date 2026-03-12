@@ -1,0 +1,79 @@
+.layout {
+  width: 100vw;
+  height: 100vh;
+  background: var(--bg-primary);
+}
+
+/* Outer vertical PanelGroup fills the layout */
+.layout > div {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.layout-main-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-main-panel > div {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.layout-bottom-panel {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Resize handles: visible and draggable */
+.layout-resize-handle {
+  background: var(--border);
+  transition: background 0.15s;
+}
+
+.layout-resize-handle:hover,
+.layout-resize-handle[data-resize-handle-active] {
+  background: var(--accent, #569cd6);
+}
+
+.layout-resize-handle-h {
+  width: 6px;
+  min-width: 6px;
+  cursor: col-resize;
+}
+
+.layout-resize-handle-v {
+  height: 6px;
+  min-height: 6px;
+  cursor: row-resize;
+}
+
+/* Bottom area: Terminal + Agents, fills the bottom panel */
+.layout-bottom-panel .bottom-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+
+.bottom-panel > *:first-child {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Keep Agents strip content-sized so Terminal/BottomPanel gets the space */
+.bottom-panel > *:nth-child(2) {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  max-height: 120px;
+  overflow: auto;
+}
+
+/* Right panel stack is now resizable via RightPanelStack.tsx */

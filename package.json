@@ -1,0 +1,78 @@
+{
+  "name": "oasis-ide",
+  "version": "0.1.0",
+  "description": "OASIS IDE - AI-powered code editor with native OASIS MCP and agent integration",
+  "type": "module",
+  "main": "dist/main/index.js",
+  "author": "OASIS Platform",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "concurrently \"npm run dev:preload\" \"npm run dev:main-tsc\"",
+    "dev:preload": "tsc -w --project tsconfig.preload.json",
+    "dev:main-tsc": "tsc -w --project tsconfig.main.json",
+    "dev:renderer": "vite",
+    "build": "npm run build:preload && npm run build:main && npm run build:renderer",
+    "build:preload": "tsc --project tsconfig.preload.json",
+    "build:main": "tsc --project tsconfig.main.json",
+    "build:renderer": "vite build",
+    "start": "electron .",
+    "rebuild:terminal": "electron-rebuild -f -w node-pty",
+    "package": "electron-builder",
+    "package:mac": "electron-builder --mac",
+    "package:win": "electron-builder --win",
+    "package:linux": "electron-builder --linux"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "node-pty": "^1.0.0",
+    "axios": "^1.6.0",
+    "electron-updater": "^6.1.7",
+    "monaco-editor": "^0.45.0",
+    "openai": "^4.24.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-dnd": "^16.0.1",
+    "react-flow-renderer": "^10.3.17",
+    "react-markdown": "^9.0.1",
+    "react-resizable-panels": "^2.0.0",
+    "simple-git": "^3.20.0",
+    "uuid": "^9.0.1",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "electron-rebuild": "^3.2.9",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@types/uuid": "^9.0.7",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8"
+  },
+  "build": {
+    "appId": "com.oasisplatform.ide",
+    "productName": "OASIS IDE",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
