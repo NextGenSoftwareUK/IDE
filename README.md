@@ -6,7 +6,7 @@ AI-powered code editor with native **OASIS MCP** (100+ tools) and **agent integr
 
 ---
 
-## For Jade — Getting started
+##  Getting started
 
 ### 1. Clone and install
 
