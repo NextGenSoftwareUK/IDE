@@ -45,6 +45,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ) =>
     ipcRenderer.invoke('chat:agent', agentId, message, conversationId, history, fromAvatarId),
 
+  // Claude (Sonnet 4.6 via OpenServ) agentic coding assistant
+  claudeHasAgent: () => ipcRenderer.invoke('claude:has-agent'),
+  claudeRunTask: (task: string) => ipcRenderer.invoke('claude:run-task', task),
+  claudeConfirmResponse: (requestId: string, approved: boolean) =>
+    ipcRenderer.invoke('claude:confirm-response', requestId, approved),
+  onClaudeEvent: (callback: (event: any) => void) => {
+    const handler = (_: unknown, event: any) => callback(event);
+    ipcRenderer.on('claude:event', handler);
+    return () => ipcRenderer.removeListener('claude:event', handler);
+  },
+
   // A2A Inbox
   a2aGetPending: () => ipcRenderer.invoke('a2a:getPending'),
   a2aMarkProcessed: (messageId: string) =>

@@ -108,3 +108,63 @@
   40% { content: '..'; }
   60%, 100% { content: '...'; }
 }
+
+.agent-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.agent-mode-toggle input {
+  cursor: pointer;
+}
+
+.agent-confirm {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+}
+
+.agent-confirm-detail {
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0 0 8px 0;
+}
+
+.agent-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.agent-confirm-approve {
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.agent-confirm-reject {
+  background: var(--error, #ff4444);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.agent-confirm-resolved {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+}

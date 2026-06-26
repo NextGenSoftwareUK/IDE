@@ -8,6 +8,7 @@ import { FileSystemService } from './services/FileSystemService.js';
 import { TerminalService } from './services/TerminalService.js';
 import { loadStoredAuth, saveAuth, clearStoredAuth } from './services/AuthStore.js';
 import { ChatService } from './services/ChatService.js';
+import { ClaudeAgentService, type ClaudeAgentEvent } from './services/ClaudeAgentService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -23,6 +24,8 @@ let agentRuntime: AgentRuntime;
 let fileSystemService: FileSystemService;
 let terminalService: TerminalService;
 let chatService: ChatService;
+let claudeAgentService: ClaudeAgentService;
+const pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -61,6 +64,7 @@ app.whenReady().then(async () => {
   fileSystemService = new FileSystemService();
   terminalService = new TerminalService();
   chatService = new ChatService();
+  claudeAgentService = new ClaudeAgentService();
 
   const stored = await loadStoredAuth();
   if (stored?.token) {
@@ -296,5 +300,43 @@ ipcMain.handle('chat:agent', async (
   } catch (error: any) {
     console.error('[IPC] Chat agent error:', error);
     return { content: '', error: error.message };
+  }
+});
+
+// Claude (Sonnet 4.6 via OpenServ) agentic coding assistant — works on the open workspace
+ipcMain.handle('claude:has-agent', () => claudeAgentService.isAvailable());
+
+ipcMain.handle('claude:run-task', async (_, task: string) => {
+  const workspaceRoot = fileSystemService.getWorkspacePath();
+  if (!workspaceRoot) {
+    return { success: false, summary: 'Open a folder/workspace before using the Claude agent.' };
+  }
+
+  const send = (event: ClaudeAgentEvent) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude:event', event);
+    }
+  };
+
+  const requestConfirmation = (
+    requestId: string,
+    kind: 'write' | 'command',
+    label: string,
+    detail: string
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      pendingConfirmations.set(requestId, resolve);
+      send({ type: 'confirm-request', requestId, kind, label, detail });
+    });
+  };
+
+  return claudeAgentService.runTask(task, { workspaceRoot, onEvent: send, requestConfirmation });
+});
+
+ipcMain.handle('claude:confirm-response', (_, requestId: string, approved: boolean) => {
+  const resolve = pendingConfirmations.get(requestId);
+  if (resolve) {
+    resolve(approved);
+    pendingConfirmations.delete(requestId);
   }
 });

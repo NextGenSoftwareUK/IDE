@@ -121,6 +121,20 @@ export OASIS_API_URL=http://your-oasis-api-url
 export OASIS_IDE_ASSISTANT_AGENT_ID=<your-agent-guid>
 ```
 
+### Claude coding agent (via OpenServ)
+
+The IDE can run Claude Sonnet 4.6 as a tool-using coding agent directly against the open workspace (read/write files, search the codebase, run shell commands) through OpenServ's Anthropic-compatible endpoint. Set:
+```bash
+export SERV_API_KEY=your_openserv_key
+```
+
+When this is set, an **"Agent mode (Claude)"** toggle appears in the chat panel. With it enabled, chat messages are sent through a full agentic loop instead of a single Q&A turn:
+
+- Claude can call `read_file`, `write_file`, `list_directory`, `search_files`, and `run_command`, scoped to the currently open workspace folder.
+- `write_file` and `run_command` always require an explicit **Apply/Run** or **Reject** click in the chat panel before they take effect — nothing is changed or executed silently.
+- Without `SERV_API_KEY` set, the toggle is hidden and chat behaves exactly as before.
+- Implementation: `src/main/services/ClaudeAgentService.ts`, wired through IPC in `src/main/index.ts` (`claude:has-agent`, `claude:run-task`, `claude:confirm-response`) and exposed to the renderer via `preload.ts`.
+
 ### Running from an external repo
 
 If the IDE lives in a **separate repo** (e.g. for collaboration), it can still use OASIS:

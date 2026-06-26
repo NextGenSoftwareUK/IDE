@@ -12,6 +12,7 @@ interface Message {
   timestamp: number;
   toolCalls?: Array<{ tool: string; result: any }>;
   error?: boolean;
+  confirm?: { requestId: string; kind: 'write' | 'command'; label: string; detail: string; resolved?: boolean };
 }
 
 const INITIAL_MESSAGE: Message = {
@@ -55,7 +56,60 @@ export const ChatInterface: React.FC = () => {
   const [hasLLM, setHasLLM] = useState<boolean | null>(null);
   const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
   const [aiAssistant, setAiAssistant] = useState<AIAssistant | null>(null);
+  const [hasClaudeAgent, setHasClaudeAgent] = useState<boolean>(false);
+  const [agentMode, setAgentMode] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Check if Claude (Sonnet 4.6 via OpenServ) agent is configured (SERV_API_KEY set)
+  useEffect(() => {
+    const api = getElectronAPI();
+    if (api?.claudeHasAgent) {
+      api.claudeHasAgent().then((ok: boolean) => setHasClaudeAgent(ok)).catch(() => setHasClaudeAgent(false));
+    }
+  }, []);
+
+  // Listen for streamed agent events (text, tool calls, confirmation requests)
+  useEffect(() => {
+    const api = getElectronAPI();
+    if (!api?.onClaudeEvent) return;
+    const unsubscribe = api.onClaudeEvent((event: any) => {
+      if (event.type === 'tool-call') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: `🔧 ${event.name}(${JSON.stringify(event.input)})`,
+            timestamp: Date.now(),
+          },
+        ]);
+      } else if (event.type === 'confirm-request') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: event.kind === 'write' ? `Proposed change — ${event.label}` : `Proposed command`,
+            timestamp: Date.now(),
+            confirm: { requestId: event.requestId, kind: event.kind, label: event.label, detail: event.detail },
+          },
+        ]);
+      } else if (event.type === 'text') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: event.text, timestamp: Date.now() }]);
+      } else if (event.type === 'error') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: `❌ ${event.message}`, timestamp: Date.now(), error: true }]);
+      }
+      // 'done' and 'tool-result' are not rendered as separate bubbles — 'done' summary
+      // already arrived as a 'text' event, and tool-results are usually long/noisy.
+    });
+    return unsubscribe;
+  }, []);
+
+  const respondToConfirm = (requestId: string, approved: boolean) => {
+    const api = getElectronAPI();
+    api?.claudeConfirmResponse?.(requestId, approved);
+    setMessages((prev) =>
+      prev.map((m) => (m.confirm?.requestId === requestId ? { ...m, confirm: { ...m.confirm, resolved: true } } : m))
+    );
+  };
 
   // Load persisted history when avatar (or login state) changes
   useEffect(() => {
@@ -100,7 +154,7 @@ export const ChatInterface: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const canSend = !!(defaultAgentId || hasLLM || aiAssistant);
+  const canSend = agentMode ? hasClaudeAgent : !!(defaultAgentId || hasLLM || aiAssistant);
   const conversationId = `ide-${avatarId || 'default'}`;
   const MAX_HISTORY = 20;
 
@@ -132,6 +186,16 @@ export const ChatInterface: React.FC = () => {
 
     try {
       const api = getElectronAPI();
+
+      // 0) Agent mode: run the full agentic Claude (OpenServ) loop on the workspace
+      if (agentMode && hasClaudeAgent && api?.claudeRunTask) {
+        const result = await api.claudeRunTask(currentInput);
+        if (!result?.success) {
+          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, undefined, true);
+        }
+        // Successful runs already streamed their text/tool messages via claude:event.
+        return;
+      }
 
       // 1) Try OASIS agent first when default agent ID is set
       if (defaultAgentId && api?.chatWithAgent) {
@@ -205,6 +269,12 @@ export const ChatInterface: React.FC = () => {
         {!canSend && !mcpLoading && (
           <span className="status-badge">Set OPENAI_API_KEY or connect OASIS backend</span>
         )}
+        {hasClaudeAgent && (
+          <label className="agent-mode-toggle" title="Run Claude Sonnet 4.6 (via OpenServ) as a coding agent on this workspace">
+            <input type="checkbox" checked={agentMode} onChange={(e) => setAgentMode(e.target.checked)} />
+            Agent mode (Claude)
+          </label>
+        )}
       </div>
       <div className="chat-messages">
         {messages.map((msg, index) => (
@@ -220,6 +290,23 @@ export const ChatInterface: React.FC = () => {
             {msg.toolCalls && msg.toolCalls.length > 0 && (
               <div className="tool-calls">
                 <div className="tool-call-label">Tool used: {msg.toolCalls[0].tool}</div>
+              </div>
+            )}
+            {msg.confirm && (
+              <div className="agent-confirm">
+                <pre className="agent-confirm-detail">{msg.confirm.detail}</pre>
+                {!msg.confirm.resolved ? (
+                  <div className="agent-confirm-actions">
+                    <button className="agent-confirm-approve" onClick={() => respondToConfirm(msg.confirm!.requestId, true)}>
+                      {msg.confirm.kind === 'write' ? 'Apply' : 'Run'}
+                    </button>
+                    <button className="agent-confirm-reject" onClick={() => respondToConfirm(msg.confirm!.requestId, false)}>
+                      Reject
+                    </button>
+                  </div>
+                ) : (
+                  <div className="agent-confirm-resolved">Responded</div>
+                )}
               </div>
             )}
           </div>
