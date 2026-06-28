@@ -56,6 +56,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('claude:event', handler);
   },
 
+  // OpenServ agentic coding assistant (OpenAI SDK, any model in the SERV catalog)
+  openservHasAgent: () => ipcRenderer.invoke('openserv:has-agent'),
+  openservListModels: () => ipcRenderer.invoke('openserv:list-models'),
+  openservRunTask: (task: string, model?: string) => ipcRenderer.invoke('openserv:run-task', task, model),
+  openservConfirmResponse: (requestId: string, approved: boolean) =>
+    ipcRenderer.invoke('openserv:confirm-response', requestId, approved),
+  onOpenservEvent: (callback: (event: any) => void) => {
+    const handler = (_: unknown, event: any) => callback(event);
+    ipcRenderer.on('openserv:event', handler);
+    return () => ipcRenderer.removeListener('openserv:event', handler);
+  },
+
   // A2A Inbox
   a2aGetPending: () => ipcRenderer.invoke('a2a:getPending'),
   a2aMarkProcessed: (messageId: string) =>

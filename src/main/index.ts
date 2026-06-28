@@ -9,6 +9,7 @@ import { TerminalService } from './services/TerminalService.js';
 import { loadStoredAuth, saveAuth, clearStoredAuth } from './services/AuthStore.js';
 import { ChatService } from './services/ChatService.js';
 import { ClaudeAgentService, type ClaudeAgentEvent } from './services/ClaudeAgentService.js';
+import { OpenServAgentService, type OpenServAgentEvent } from './services/OpenServAgentService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -25,6 +26,7 @@ let fileSystemService: FileSystemService;
 let terminalService: TerminalService;
 let chatService: ChatService;
 let claudeAgentService: ClaudeAgentService;
+let openServAgentService: OpenServAgentService;
 const pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
 function createWindow() {
@@ -65,6 +67,7 @@ app.whenReady().then(async () => {
   terminalService = new TerminalService();
   chatService = new ChatService();
   claudeAgentService = new ClaudeAgentService();
+  openServAgentService = new OpenServAgentService();
 
   const stored = await loadStoredAuth();
   if (stored?.token) {
@@ -334,6 +337,47 @@ ipcMain.handle('claude:run-task', async (_, task: string) => {
 });
 
 ipcMain.handle('claude:confirm-response', (_, requestId: string, approved: boolean) => {
+  const resolve = pendingConfirmations.get(requestId);
+  if (resolve) {
+    resolve(approved);
+    pendingConfirmations.delete(requestId);
+  }
+});
+
+// OpenServ agentic coding assistant — same workspace tool loop as the Claude agent above,
+// but driven through the OpenAI SDK so it can run any model in the SERV catalog.
+ipcMain.handle('openserv:has-agent', () => openServAgentService.isAvailable());
+
+ipcMain.handle('openserv:list-models', () => openServAgentService.listModels());
+
+ipcMain.handle('openserv:run-task', async (_, task: string, model?: string) => {
+  const workspaceRoot = fileSystemService.getWorkspacePath();
+  if (!workspaceRoot) {
+    return { success: false, summary: 'Open a folder/workspace before using the OpenServ agent.' };
+  }
+
+  const send = (event: OpenServAgentEvent) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('openserv:event', event);
+    }
+  };
+
+  const requestConfirmation = (
+    requestId: string,
+    kind: 'write' | 'command',
+    label: string,
+    detail: string
+  ): Promise<boolean> => {
+    return new Promise((resolve) => {
+      pendingConfirmations.set(requestId, resolve);
+      send({ type: 'confirm-request', requestId, kind, label, detail });
+    });
+  };
+
+  return openServAgentService.runTask(task, { workspaceRoot, model, onEvent: send, requestConfirmation });
+});
+
+ipcMain.handle('openserv:confirm-response', (_, requestId: string, approved: boolean) => {
   const resolve = pendingConfirmations.get(requestId);
   if (resolve) {
     resolve(approved);

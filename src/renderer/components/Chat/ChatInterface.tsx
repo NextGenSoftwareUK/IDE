@@ -58,6 +58,10 @@ export const ChatInterface: React.FC = () => {
   const [aiAssistant, setAiAssistant] = useState<AIAssistant | null>(null);
   const [hasClaudeAgent, setHasClaudeAgent] = useState<boolean>(false);
   const [agentMode, setAgentMode] = useState<boolean>(false);
+  const [hasOpenServAgent, setHasOpenServAgent] = useState<boolean>(false);
+  const [openServModels, setOpenServModels] = useState<Array<{ id: string; label: string }>>([]);
+  const [openServModel, setOpenServModel] = useState<string>('');
+  const [openServAgentMode, setOpenServAgentMode] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Check if Claude (Sonnet 4.6 via OpenServ) agent is configured (SERV_API_KEY set)
@@ -66,6 +70,51 @@ export const ChatInterface: React.FC = () => {
     if (api?.claudeHasAgent) {
       api.claudeHasAgent().then((ok: boolean) => setHasClaudeAgent(ok)).catch(() => setHasClaudeAgent(false));
     }
+  }, []);
+
+  // Check if the OpenServ agent (OpenAI SDK, any model in the SERV catalog) is configured
+  useEffect(() => {
+    const api = getElectronAPI();
+    if (api?.openservHasAgent) {
+      api.openservHasAgent().then((ok: boolean) => setHasOpenServAgent(ok)).catch(() => setHasOpenServAgent(false));
+    }
+    if (api?.openservListModels) {
+      api.openservListModels()
+        .then((models: Array<{ id: string; label: string }>) => {
+          setOpenServModels(models || []);
+          if (models?.length) setOpenServModel(models[0].id);
+        })
+        .catch(() => setOpenServModels([]));
+    }
+  }, []);
+
+  // Listen for streamed OpenServ agent events (text, tool calls, confirmation requests)
+  useEffect(() => {
+    const api = getElectronAPI();
+    if (!api?.onOpenservEvent) return;
+    const unsubscribe = api.onOpenservEvent((event: any) => {
+      if (event.type === 'tool-call') {
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: `🔧 ${event.name}(${JSON.stringify(event.input)})`, timestamp: Date.now() },
+        ]);
+      } else if (event.type === 'confirm-request') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: event.kind === 'write' ? `Proposed change — ${event.label}` : `Proposed command`,
+            timestamp: Date.now(),
+            confirm: { requestId: event.requestId, kind: event.kind, label: event.label, detail: event.detail },
+          },
+        ]);
+      } else if (event.type === 'text') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: event.text, timestamp: Date.now() }]);
+      } else if (event.type === 'error') {
+        setMessages((prev) => [...prev, { role: 'assistant', content: `❌ ${event.message}`, timestamp: Date.now(), error: true }]);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   // Listen for streamed agent events (text, tool calls, confirmation requests)
@@ -105,7 +154,11 @@ export const ChatInterface: React.FC = () => {
 
   const respondToConfirm = (requestId: string, approved: boolean) => {
     const api = getElectronAPI();
-    api?.claudeConfirmResponse?.(requestId, approved);
+    if (openServAgentMode) {
+      api?.openservConfirmResponse?.(requestId, approved);
+    } else {
+      api?.claudeConfirmResponse?.(requestId, approved);
+    }
     setMessages((prev) =>
       prev.map((m) => (m.confirm?.requestId === requestId ? { ...m, confirm: { ...m.confirm, resolved: true } } : m))
     );
@@ -154,7 +207,11 @@ export const ChatInterface: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const canSend = agentMode ? hasClaudeAgent : !!(defaultAgentId || hasLLM || aiAssistant);
+  const canSend = agentMode
+    ? hasClaudeAgent
+    : openServAgentMode
+    ? hasOpenServAgent
+    : !!(defaultAgentId || hasLLM || aiAssistant);
   const conversationId = `ide-${avatarId || 'default'}`;
   const MAX_HISTORY = 20;
 
@@ -194,6 +251,16 @@ export const ChatInterface: React.FC = () => {
           pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, undefined, true);
         }
         // Successful runs already streamed their text/tool messages via claude:event.
+        return;
+      }
+
+      // 0b) Agent mode: run the agentic loop against any OpenServ model via the OpenAI SDK
+      if (openServAgentMode && hasOpenServAgent && api?.openservRunTask) {
+        const result = await api.openservRunTask(currentInput, openServModel);
+        if (!result?.success) {
+          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, undefined, true);
+        }
+        // Successful runs already streamed their text/tool messages via openserv:event.
         return;
       }
 
@@ -271,9 +338,43 @@ export const ChatInterface: React.FC = () => {
         )}
         {hasClaudeAgent && (
           <label className="agent-mode-toggle" title="Run Claude Sonnet 4.6 (via OpenServ) as a coding agent on this workspace">
-            <input type="checkbox" checked={agentMode} onChange={(e) => setAgentMode(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={agentMode}
+              onChange={(e) => {
+                setAgentMode(e.target.checked);
+                if (e.target.checked) setOpenServAgentMode(false);
+              }}
+            />
             Agent mode (Claude)
           </label>
+        )}
+        {hasOpenServAgent && (
+          <label className="agent-mode-toggle" title="Run any OpenServ model (OpenAI SDK) as a coding agent on this workspace">
+            <input
+              type="checkbox"
+              checked={openServAgentMode}
+              onChange={(e) => {
+                setOpenServAgentMode(e.target.checked);
+                if (e.target.checked) setAgentMode(false);
+              }}
+            />
+            Agent mode (OpenServ)
+          </label>
+        )}
+        {openServAgentMode && openServModels.length > 0 && (
+          <select
+            className="agent-model-select"
+            value={openServModel}
+            onChange={(e) => setOpenServModel(e.target.value)}
+            title="Model used by the OpenServ agent"
+          >
+            {openServModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
         )}
       </div>
       <div className="chat-messages">

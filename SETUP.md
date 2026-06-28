@@ -135,6 +135,18 @@ When this is set, an **"Agent mode (Claude)"** toggle appears in the chat panel.
 - Without `SERV_API_KEY` set, the toggle is hidden and chat behaves exactly as before.
 - Implementation: `src/main/services/ClaudeAgentService.ts`, wired through IPC in `src/main/index.ts` (`claude:has-agent`, `claude:run-task`, `claude:confirm-response`) and exposed to the renderer via `preload.ts`.
 
+### OpenServ coding agent (OpenAI SDK, any catalog model)
+
+The same agentic tool loop is also available through OpenServ's OpenAI-compatible `chat/completions` endpoint, which works with **every** model in the SERV catalog (OpenAI, Anthropic, Google, xAI, Qwen, DeepSeek), not just Claude. It uses the same `SERV_API_KEY`:
+```bash
+export SERV_API_KEY=your_openserv_key
+```
+
+When set, an **"Agent mode (OpenServ)"** toggle appears in the chat panel next to a model picker (GPT-5.5/5.4/o3/o4-mini, Claude Opus/Sonnet/Haiku, Gemini, Grok, Qwen, DeepSeek, etc.) — see `OPENSERV_MODELS` in `OpenServAgentService.ts` for the full list. Only one agent mode can be active at a time.
+
+- Same tools as the Claude agent (`read_file`, `write_file`, `list_directory`, `search_files`, `run_command`), same write/run confirmation gate.
+- Implementation: `src/main/services/OpenServAgentService.ts`, wired through IPC in `src/main/index.ts` (`openserv:has-agent`, `openserv:list-models`, `openserv:run-task`, `openserv:confirm-response`) and exposed to the renderer via `preload.ts`.
+
 ### Running from an external repo
 
 If the IDE lives in a **separate repo** (e.g. for collaboration), it can still use OASIS:
