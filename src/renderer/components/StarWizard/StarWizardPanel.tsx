@@ -7,7 +7,7 @@ interface Template { id: string; name: string; description: string; }
 const api = () => window.electronAPI;
 
 export const StarWizardPanel: React.FC = () => {
-  const { workspacePath, pickWorkspace } = useWorkspace();
+  const { workspacePath, pickWorkspace, openWorkspace } = useWorkspace();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState('oapp');
   const [appName, setAppName] = useState('');
@@ -125,10 +125,7 @@ export const StarWizardPanel: React.FC = () => {
                 type="button"
                 className="star-open-btn"
                 onClick={async () => {
-                  // Open the newly created project folder as workspace
-                  if (result.path) {
-                    (window as any).electronAPI?.setWorkspacePath?.(result.path);
-                  }
+                  if (result.path) await openWorkspace(result.path);
                 }}
               >
                 Open in Explorer

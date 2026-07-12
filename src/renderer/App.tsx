@@ -42,10 +42,12 @@ export interface OASISElectronAPI {
   // ── File System ───────────────────────────────────────────────────────────────
   pickWorkspace: () => Promise<string | null>;
   getWorkspacePath: () => Promise<string | null>;
+  setWorkspacePath: (dir: string) => Promise<string>;
   listTree: (dir?: string) => Promise<any[]>;
   readFile: (path: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
   searchFiles: (query: string, dir?: string, extensions?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
+  onWorkspaceChanged: (cb: () => void) => () => void;
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
   authLogin: (username: string, password: string) => Promise<{ success: boolean; username?: string; avatarId?: string; error?: string }>;
@@ -80,6 +82,9 @@ export interface OASISElectronAPI {
   web6MemorySearch: (query: string, avatarId?: string, limit?: number) => Promise<any[]>;
   web6GetMcpDiscovery: () => Promise<any>;
   web6ListOpenservModels: () => Promise<any[]>;
+  web6CompleteWithTools: (request: any) => Promise<{ content?: string; meta?: any; rounds?: number; error?: string }>;
+  onWeb6ToolCall: (cb: (toolCalls: any[]) => void) => () => void;
+  onWeb6ToolResult: (cb: (result: { name: string; result: any }) => void) => () => void;
 
   // ── Web7 API ──────────────────────────────────────────────────────────────────
   web7HealthCheck: () => Promise<any>;

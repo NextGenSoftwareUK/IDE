@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 export interface TreeNode {
   name: string;
@@ -14,6 +14,7 @@ interface WorkspaceContextValue {
   fileContent: string;
   dirty: boolean;
   pickWorkspace: () => Promise<void>;
+  openWorkspace: (dir: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
   setFileContent: (content: string) => void;
@@ -26,28 +27,43 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openFilePath, setOpenFilePath] = useState<string | null>(null);
   const [fileContent, setFileContentState] = useState<string>('');
   const [dirty, setDirty] = useState(false);
 
+  const openWorkspace = useCallback(async (dir: string) => {
+    await window.electronAPI?.setWorkspacePath?.(dir);
+    setWorkspacePath(dir);
+    const list = await window.electronAPI?.listTree?.() ?? [];
+    setTree(list);
+    setOpenFilePath(null);
+    setFileContentState('');
+    setDirty(false);
+  }, []);
+
   const pickWorkspace = useCallback(async () => {
     if (!window.electronAPI?.pickWorkspace) return;
     const path = await window.electronAPI.pickWorkspace();
-    if (path) {
-      setWorkspacePath(path);
-      const list = await window.electronAPI.listTree();
-      setTree(list ?? []);
-      setOpenFilePath(null);
-      setFileContentState('');
-      setDirty(false);
-    }
-  }, []);
+    if (path) await openWorkspace(path);
+  }, [openWorkspace]);
 
   const refreshTree = useCallback(async () => {
     if (!workspacePath || !window.electronAPI?.listTree) return;
     const list = await window.electronAPI.listTree();
     setTree(list ?? []);
   }, [workspacePath]);
+
+  // Auto-refresh tree when the file watcher fires (debounced 400ms)
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onWorkspaceChanged) return;
+    const unsub = api.onWorkspaceChanged(() => {
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+      refreshDebounceRef.current = setTimeout(() => { refreshTree(); }, 400);
+    });
+    return () => { unsub(); if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); };
+  }, [refreshTree]);
 
   const openFile = useCallback(async (path: string) => {
     if (!window.electronAPI?.readFile) return;
@@ -83,6 +99,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     fileContent,
     dirty,
     pickWorkspace,
+    openWorkspace,
     refreshTree,
     openFile,
     setFileContent,

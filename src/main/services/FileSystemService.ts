@@ -1,6 +1,7 @@
 import { dialog } from 'electron';
 import fs from 'fs/promises';
 import path from 'path';
+import chokidar, { FSWatcher } from 'chokidar';
 
 const DEFAULT_IGNORE = new Set([
   'node_modules',
@@ -24,6 +25,8 @@ export interface TreeNode {
 
 export class FileSystemService {
   private workspacePath: string | null = null;
+  private watcher: FSWatcher | null = null;
+  private onChangeCallback: (() => void) | null = null;
 
   getWorkspacePath(): string | null {
     return this.workspacePath;
@@ -38,11 +41,29 @@ export class FileSystemService {
       return null;
     }
     this.workspacePath = result.filePaths[0];
+    this.startWatcher(this.workspacePath);
     return this.workspacePath;
   }
 
   setWorkspacePath(dir: string): void {
     this.workspacePath = dir;
+    this.startWatcher(dir);
+  }
+
+  onWorkspaceChange(cb: () => void): void {
+    this.onChangeCallback = cb;
+  }
+
+  private startWatcher(dir: string): void {
+    this.watcher?.close();
+    this.watcher = chokidar.watch(dir, {
+      ignored: /(node_modules|\.git|dist|build|\.next|\.vite|coverage|__pycache__)/,
+      ignoreInitial: true,
+      depth: 8,
+      usePolling: false,
+    });
+    const notify = () => this.onChangeCallback?.();
+    this.watcher.on('add', notify).on('unlink', notify).on('addDir', notify).on('unlinkDir', notify);
   }
 
   async listTree(dir?: string): Promise<TreeNode[]> {

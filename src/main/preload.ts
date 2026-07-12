@@ -19,9 +19,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── File System ────────────────────────────────────────────────────────────
   pickWorkspace: () => ipcRenderer.invoke('fs:pick-workspace'),
   getWorkspacePath: () => ipcRenderer.invoke('fs:get-workspace-path'),
+  setWorkspacePath: (dir: string) => ipcRenderer.invoke('fs:set-workspace-path', dir),
   listTree: (dir?: string) => ipcRenderer.invoke('fs:list-tree', dir),
   readFile: (path: string) => ipcRenderer.invoke('fs:read-file', path),
   writeFile: (path: string, content: string) => ipcRenderer.invoke('fs:write-file', path, content),
+  onWorkspaceChanged: (cb: () => void) => {
+    const h = () => cb();
+    ipcRenderer.on('fs:workspace-changed', h);
+    return () => ipcRenderer.removeListener('fs:workspace-changed', h);
+  },
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   authLogin: (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),
@@ -60,6 +66,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('web6:memory-search', query, avatarId, limit),
   web6GetMcpDiscovery: () => ipcRenderer.invoke('web6:get-mcp-discovery'),
   web6ListOpenservModels: () => ipcRenderer.invoke('web6:list-openserv-models'),
+  web6CompleteWithTools: (request: any) => ipcRenderer.invoke('web6:complete-with-tools', request),
+  onWeb6ToolCall: (cb: (toolCalls: any[]) => void) => {
+    const h = (_: unknown, d: any[]) => cb(d);
+    ipcRenderer.on('web6:tool-call', h);
+    return () => ipcRenderer.removeListener('web6:tool-call', h);
+  },
+  onWeb6ToolResult: (cb: (result: { name: string; result: any }) => void) => {
+    const h = (_: unknown, d: any) => cb(d);
+    ipcRenderer.on('web6:tool-result', h);
+    return () => ipcRenderer.removeListener('web6:tool-result', h);
+  },
 
   // ── Web7 API ───────────────────────────────────────────────────────────────
   web7HealthCheck: () => ipcRenderer.invoke('web7:health-check'),

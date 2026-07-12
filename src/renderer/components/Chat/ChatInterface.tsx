@@ -77,6 +77,7 @@ export const ChatInterface: React.FC = () => {
   const [web6Provider, setWeb6Provider] = useState('auto');
   const [web6Model, setWeb6Model] = useState('auto');
   const [useStream, setUseStream] = useState(true);
+  const [useTools, setUseTools] = useState(false);
   const [injectAvatarCtx, setInjectAvatarCtx] = useState(false);
   const [aiAssistant, setAiAssistant] = useState<AIAssistant | null>(null);
 
@@ -142,6 +143,30 @@ export const ChatInterface: React.FC = () => {
       unDone?.();
       unErr?.();
     };
+  }, []);
+
+  // ── Effect: MCP tool-call event listeners ─────────────────────────────────
+
+  useEffect(() => {
+    const api = getAPI();
+    if (!api) return;
+    const unToolCall = api.onWeb6ToolCall?.((tcs: any[]) => {
+      const names = tcs.map((tc: any) => tc.name ?? tc.Name).join(', ');
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: `🔧 Calling MCP tool${tcs.length > 1 ? 's' : ''}: ${names}`,
+        timestamp: Date.now()
+      }]);
+    });
+    const unToolResult = api.onWeb6ToolResult?.((r: { name: string; result: any }) => {
+      const preview = JSON.stringify(r.result)?.slice(0, 200) ?? '';
+      setMessages((prev) => [...prev, {
+        role: 'assistant',
+        content: `✅ ${r.name} → ${preview}`,
+        timestamp: Date.now()
+      }]);
+    });
+    return () => { unToolCall?.(); unToolResult?.(); };
   }, []);
 
   // ── Effect: Claude/OpenServ event listeners ────────────────────────────────
@@ -315,31 +340,43 @@ export const ChatInterface: React.FC = () => {
         return;
       }
 
-      // ── Web6 standard completion (with optional streaming) ─────────────────
+      // ── Web6 standard completion (with optional streaming / tool-use) ────────
       if (agentMode === 'web6' && api?.web6Complete) {
         const msgs = [
           ...history.map((m) => ({ role: m.role, content: m.content })),
           { role: 'user', content: currentInput }
         ];
-        const req = {
+        const baseReq = {
           Provider: web6Provider,
           Model: web6Model,
           Messages: msgs,
           ...(avatarId && injectAvatarCtx ? { AvatarId: avatarId, InjectAvatarContext: true } : {})
         };
 
+        // Tool-use loop mode: MCP tools injected, runs multi-round agentic loop
+        if (useTools && api?.web6CompleteWithTools) {
+          const result = await api.web6CompleteWithTools(baseReq);
+          if (result?.error) {
+            pushAssistantMessage(`❌ ${result.error}`, { error: true });
+          } else {
+            const meta: Message['meta'] = result?.meta;
+            pushAssistantMessage(result?.content ?? 'No response.', { meta });
+          }
+          setLoading(false);
+          return;
+        }
+
         if (useStream && api?.web6StreamComplete) {
-          // Add a placeholder streaming bubble
-          const placeholderIdx = messages.length + 1; // +1 because we added userMsg above
+          const placeholderIdx = messages.length + 1;
           setMessages((prev) => [
             ...prev,
             { role: 'assistant', content: '', timestamp: Date.now(), streaming: true }
           ]);
           streamingIdRef.current = placeholderIdx;
-          await api.web6StreamComplete(req);
+          await api.web6StreamComplete(baseReq);
           // loading cleared by onWeb6StreamDone handler
         } else {
-          const result = await api.web6Complete(req);
+          const result = await api.web6Complete(baseReq);
           if (result?.IsError || result?.Error) {
             pushAssistantMessage(`❌ ${result.Error ?? 'Web6 completion failed'}`, { error: true });
           } else {
@@ -439,6 +476,12 @@ export const ChatInterface: React.FC = () => {
                     <input type="checkbox" checked={useStream} onChange={(e) => setUseStream(e.target.checked)} />
                     Stream
                   </label>
+                  {tools.length > 0 && (
+                    <label className="chat-toggle chat-toggle-tools" title={`Let the AI call MCP tools (${tools.length} available). Disables streaming.`}>
+                      <input type="checkbox" checked={useTools} onChange={(e) => { setUseTools(e.target.checked); if (e.target.checked) setUseStream(false); }} />
+                      Tools
+                    </label>
+                  )}
                 </>
               )}
               <label className="chat-toggle" title="Inject OASIS avatar context (karma, quests) — requires login">

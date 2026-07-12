@@ -129,6 +129,13 @@ app.whenReady().then(async () => {
 
   createWindow();
 
+  // Forward file-system change events to renderer so the tree auto-refreshes
+  fileSystemService.onWorkspaceChange(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('fs:workspace-changed');
+    }
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -223,6 +230,10 @@ ipcMain.handle('fs:pick-workspace', async () => {
   catch { return null; }
 });
 ipcMain.handle('fs:get-workspace-path', () => fileSystemService.getWorkspacePath());
+ipcMain.handle('fs:set-workspace-path', (_, dir: string) => {
+  fileSystemService.setWorkspacePath(dir);
+  return dir;
+});
 ipcMain.handle('fs:list-tree', async (_, dir?: string) => {
   try { return await fileSystemService.listTree(dir); }
   catch { return []; }
@@ -378,6 +389,71 @@ ipcMain.handle('web6:orchestrator-invoke', (_, agentId: string, task: string, in
 ipcMain.handle('web6:memory-search', (_, query: string, avatarId?: string, limit?: number) =>
   web6Client.memorySearch(query, avatarId, limit));
 ipcMain.handle('web6:list-openserv-models', () => web6Client.listOpenServModels());
+
+// ── Web6 + MCP tool-use loop ─────────────────────────────────────────────────
+// Sends to Web6 with MCP tool definitions attached, then runs any requested
+// tool calls via the MCP server and feeds results back until the model stops.
+
+ipcMain.handle('web6:complete-with-tools', async (_, request: any) => {
+  const win = mainWindow;
+  const send = (event: string, data: any) => {
+    if (win && !win.isDestroyed()) win.webContents.send(event, data);
+  };
+
+  try {
+    // Attach MCP tool definitions to the request
+    let tools: any[] = [];
+    try { tools = await mcpManager.listTools('oasis-unified'); } catch { /* MCP not running */ }
+
+    const web6Tools = tools.map((t: any) => ({
+      Name: t.name,
+      Description: t.description ?? '',
+      Parameters: t.inputSchema ?? {}
+    }));
+
+    let messages = [...(request.Messages ?? [])];
+    const maxRounds = 8;
+
+    for (let round = 0; round < maxRounds; round++) {
+      const req = { ...request, Messages: messages, Tools: web6Tools, ToolChoice: 'auto' };
+      const result = await web6Client.complete(req);
+
+      if (result?.IsError || result?.Error) {
+        return { error: result.Error ?? 'Web6 completion failed', round };
+      }
+
+      // If no tool calls, we're done — return the final text
+      if (!result.ToolCalls || result.ToolCalls.length === 0) {
+        return { content: result.Content, meta: { provider: result.Provider, model: result.Model, costUsd: result.CostUsd }, rounds: round + 1 };
+      }
+
+      // Notify renderer of tool calls
+      send('web6:tool-call', result.ToolCalls);
+
+      // Add assistant message with tool calls to history
+      messages.push({ role: 'assistant', content: result.Content ?? '', toolCalls: result.ToolCalls });
+
+      // Execute each tool call via MCP
+      const toolResults: any[] = [];
+      for (const tc of result.ToolCalls) {
+        try {
+          const mcpResult = await mcpManager.executeTool(tc.name ?? tc.Name, tc.arguments ?? tc.Arguments ?? {});
+          toolResults.push({ toolCallId: tc.id ?? tc.Id, name: tc.name ?? tc.Name, result: mcpResult });
+          send('web6:tool-result', { name: tc.name ?? tc.Name, result: mcpResult });
+        } catch (e: any) {
+          toolResults.push({ toolCallId: tc.id ?? tc.Id, name: tc.name ?? tc.Name, result: { error: e.message } });
+        }
+      }
+
+      // Feed tool results back as a tool message
+      messages.push({ role: 'tool', content: JSON.stringify(toolResults) });
+    }
+
+    return { error: 'Max tool-use rounds reached', rounds: maxRounds };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+});
 
 // ── Web7 API ──────────────────────────────────────────────────────────────────
 

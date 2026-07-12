@@ -158,6 +158,11 @@
   cursor: pointer;
 }
 
+.chat-toggle-tools {
+  color: #00d4aa;
+  font-weight: 500;
+}
+
 .chat-clear-btn {
   font-size: 11px;
   padding: 2px 8px;

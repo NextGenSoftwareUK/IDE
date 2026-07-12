@@ -54,3 +54,89 @@
 .bottom-panel-placeholder p {
   margin: 0;
 }
+
+/* ── Output tab ─────────────────────────────────── */
+
+.output-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0d1117;
+  position: relative;
+}
+
+.output-empty {
+  padding: 14px 16px;
+  font-size: 12px;
+  color: #6e7681;
+  margin: 0;
+}
+
+.output-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.output-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.output-ts {
+  font-size: 10px;
+  color: #6e7681;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.output-text {
+  font-size: 11.5px;
+  font-family: 'Fira Code', monospace;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.output-tool-call .output-text { color: #79c0ff; }
+.output-tool-result .output-text { color: #3fb950; }
+.output-info .output-text { color: #8b949e; }
+
+.output-clear-btn {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  padding: 3px 8px;
+  font-size: 11px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #6e7681;
+  cursor: pointer;
+  font-family: inherit;
+}
+.output-clear-btn:hover { color: #c9d1d9; border-color: #58a6ff; }
+
+/* ── Tab unread badge ────────────────────────────── */
+
+.bottom-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  background: var(--accent, #1f6feb);
+  color: #fff;
+  border-radius: 8px;
+  margin-left: 5px;
+  line-height: 1;
+}
