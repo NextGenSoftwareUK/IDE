@@ -1,0 +1,46 @@
+import { app } from 'electron';
+import fs from 'fs';
+import path from 'path';
+
+const SETTINGS_FILE = path.join(app.getPath('userData'), 'oasis-ide-settings.json');
+
+const DEFAULTS: Record<string, string> = {
+  OASIS_API_URL: process.env.OASIS_API_URL || 'http://localhost:7777',
+  OASIS_WEB6_URL: process.env.OASIS_WEB6_URL || 'http://localhost:64596',
+  OASIS_WEB6_API_KEY: process.env.OASIS_WEB6_API_KEY || '',
+  OASIS_WEB7_URL: process.env.OASIS_WEB7_URL || 'http://localhost:62798',
+  OASIS_WEB8_URL: process.env.OASIS_WEB8_URL || 'http://localhost:65332',
+  OASIS_WEB9_URL: process.env.OASIS_WEB9_URL || 'http://localhost:65342',
+  OASIS_WEB10_URL: process.env.OASIS_WEB10_URL || 'http://localhost:57483',
+  OASIS_MCP_SERVER_PATH: process.env.OASIS_MCP_SERVER_PATH || '',
+  OASIS_STAR_CLI_PATH: process.env.OASIS_STAR_CLI_PATH || '',
+  SERV_API_KEY: process.env.SERV_API_KEY || '',
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+};
+
+export class SettingsService {
+  private cache: Record<string, string> | null = null;
+
+  getAll(): Record<string, string> {
+    if (this.cache) return { ...this.cache };
+    try {
+      const raw = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      this.cache = { ...DEFAULTS, ...JSON.parse(raw) };
+    } catch {
+      this.cache = { ...DEFAULTS };
+    }
+    return { ...this.cache };
+  }
+
+  get(key: string): string {
+    return this.getAll()[key] ?? '';
+  }
+
+  async saveAll(settings: Record<string, string>): Promise<void> {
+    this.cache = { ...DEFAULTS, ...settings };
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(this.cache, null, 2), 'utf8');
+    // Propagate to process.env so clients that read env at startup also benefit
+    for (const [k, v] of Object.entries(this.cache)) process.env[k] = v;
+  }
+}

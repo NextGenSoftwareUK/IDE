@@ -12,6 +12,9 @@ import { loadStoredAuth, saveAuth, clearStoredAuth } from './services/AuthStore.
 import { ChatService } from './services/ChatService.js';
 import { ClaudeAgentService, type ClaudeAgentEvent } from './services/ClaudeAgentService.js';
 import { OpenServAgentService, type OpenServAgentEvent } from './services/OpenServAgentService.js';
+import { SettingsService } from './services/SettingsService.js';
+import { GitService } from './services/GitService.js';
+import { StarWizardService } from './services/StarWizardService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,6 +35,9 @@ let terminalService: TerminalService;
 let chatService: ChatService;
 let claudeAgentService: ClaudeAgentService;
 let openServAgentService: OpenServAgentService;
+let settingsService: SettingsService;
+let gitService: GitService;
+let starWizardService: StarWizardService;
 const pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
 // Default terminal session IDs created at startup (before renderer asks for them)
@@ -81,6 +87,9 @@ app.whenReady().then(async () => {
   chatService = new ChatService();
   claudeAgentService = new ClaudeAgentService();
   openServAgentService = new OpenServAgentService();
+  settingsService = new SettingsService();
+  gitService = new GitService();
+  starWizardService = new StarWizardService();
 
   const stored = await loadStoredAuth();
   if (stored?.token) {
@@ -438,3 +447,37 @@ ipcMain.handle('openserv:confirm-response', (_, requestId: string, approved: boo
   const resolve = pendingConfirmations.get(requestId);
   if (resolve) { resolve(approved); pendingConfirmations.delete(requestId); }
 });
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+ipcMain.handle('settings:get', () => settingsService.getAll());
+ipcMain.handle('settings:save', async (_, settings: Record<string, string>) => {
+  await settingsService.saveAll(settings);
+  // Apply URL/key changes to live clients immediately
+  if (settings.OASIS_API_URL) oasisClient.setBaseURL(settings.OASIS_API_URL);
+  if (settings.OASIS_WEB6_URL) web6Client.setBaseURL(settings.OASIS_WEB6_URL);
+  if (settings.OASIS_WEB6_API_KEY) web6Client.setApiKey(settings.OASIS_WEB6_API_KEY);
+});
+
+// ── File search ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('fs:search-files', async (_, query: string, dir?: string, extensions?: string[]) => {
+  const root = dir ?? fileSystemService.getWorkspacePath();
+  if (!root) return [];
+  return fileSystemService.searchFiles(query, root, extensions);
+});
+
+// ── Git ───────────────────────────────────────────────────────────────────────
+
+ipcMain.handle('git:status', async (_, dir: string) => gitService.status(dir));
+ipcMain.handle('git:diff', async (_, dir: string, filePath?: string) => gitService.diff(dir, filePath));
+ipcMain.handle('git:log', async (_, dir: string, limit?: number) => gitService.log(dir, limit));
+ipcMain.handle('git:commit', async (_, dir: string, message: string, files: string[]) =>
+  gitService.commit(dir, message, files));
+ipcMain.handle('git:init', async (_, dir: string) => gitService.init(dir));
+
+// ── STAR ODK wizard ───────────────────────────────────────────────────────────
+
+ipcMain.handle('star:get-templates', () => starWizardService.getTemplates());
+ipcMain.handle('star:new-app', async (_, name: string, templateType: string, outputDir: string) =>
+  starWizardService.createApp(name, templateType, outputDir));

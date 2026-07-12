@@ -1,12 +1,12 @@
 # OASIS IDE
 
-AI-powered code editor with native **OASIS MCP** (100+ tools) and **agent integration**. Built with Electron, React, and TypeScript.
+AI-powered code editor with deep **OASIS Web4–Web10 integration**, 243 MCP tools, FAHRN multi-agent AI, streaming completions, STAR CLI terminals, Git panel, workspace search, and OAPP scaffolding wizard. Built with Electron, React, and TypeScript.
 
 **Repo:** [github.com/NextGenSoftwareUK/IDE](https://github.com/NextGenSoftwareUK/IDE)
 
 ---
 
-##  Getting started
+## Getting started
 
 ### 1. Clone and install
 
@@ -16,22 +16,31 @@ cd IDE
 npm install
 ```
 
-### 2. Connect to OASIS
+> **Important — terminal native module:** After `npm install`, rebuild node-pty for your Electron version or the built-in terminals won’t start:
+> ```bash
+> npm run rebuild:terminal
+> ```
+> If this fails with a Python `distutils` error (Python 3.12+):
+> ```bash
+> python3 -m pip install setuptools && npm run rebuild:terminal
+> ```
 
-The IDE talks to OASIS over HTTP and (optionally) runs the OASIS MCP server locally. Set these **environment variables** before running:
+### 2. Configure OASIS services
 
-| Variable | What it does | Example |
-|----------|----------------|---------|
-| **OASIS_API_URL** | Base URL of the OASIS API (auth, chat, agents, health). | `http://127.0.0.1:5003` (local) or a staging/production URL |
-| **OASIS_MCP_SERVER_PATH** | *(Optional)* Full path to the OASIS MCP server entry file. Only needed if you want the 100+ MCP tools in the IDE. See [MCP setup](#mcp-tools-optional) below. | `/path/to/MCP/dist/src/index.js` |
+Copy `.env.example` to `.env` and fill in your values, **or** open the IDE and click the ⚙ gear icon at the bottom-left of the Explorer panel to edit settings in-app.
 
-Example (macOS/Linux):
+| Service | Default port | Variable |
+|---------|-------------|----------|
+| Web4 (ONODE) – avatar, holon, NFT, wallet | 7777 | `OASIS_API_URL` |
+| Web6 – AI completions, FAHRN, A2A agents | 64596 | `OASIS_WEB6_URL` / `OASIS_WEB6_API_KEY` |
+| Web7 – collective consciousness | 62798 | `OASIS_WEB7_URL` |
+| Web8 – mesh routing | 65332 | `OASIS_WEB8_URL` |
+| Web9 – singularity aggregation | 65342 | `OASIS_WEB9_URL` |
+| Web10 – The Source | 57483 | `OASIS_WEB10_URL` |
+| MCP server (.NET) | auto-detected | `OASIS_MCP_SERVER_PATH` |
+| STAR CLI | auto-detected | `OASIS_STAR_CLI_PATH` |
 
-```bash
-export OASIS_API_URL=http://127.0.0.1:5003
-# Optional, for MCP tools (see below):
-# export OASIS_MCP_SERVER_PATH=/absolute/path/to/MCP/dist/src/index.js
-```
+The IDE auto-detects the Web6 .NET MCP server at `C:\Source\OASIS2\WEB6\NextGenSoftware.OASIS.MCP.Server` and the STAR CLI at the monorepo’s build output. All URLs can be overridden via Settings without restarting.
 
 ### 3. Run the IDE
 
@@ -39,50 +48,40 @@ export OASIS_API_URL=http://127.0.0.1:5003
 npm run dev
 ```
 
-This opens the Electron window. You can log in with your OASIS avatar (username/password) if the API is running; the AI chat uses the OASIS IDE Assistant agent.
-
-### 4. Embedded terminal (if you use it)
-
-The in-app terminal uses **node-pty**. If you see "posix_spawnp failed" or similar:
-
-```bash
-npm run rebuild:terminal
-```
-
-Then restart the app. If rebuild fails with a Python `distutils` error (e.g. on Python 3.12+):
-
-```bash
-python3 -m pip install setuptools
-npm run rebuild:terminal
-```
-
-### 5. Collaborating (workflow)
-
-- Work on a **branch** for your feature: `git checkout -b your-feature`
-- Push and open a **Pull Request** when ready.
-- Keep `main` runnable; we’ll merge via PRs.
-
-If something’s unclear or you’re blocked, reach out to Max (or the team) — we can add more docs or pair on setup.
+A yellow warning banner appears at startup if Web4 or Web6 are unreachable.
 
 ---
 
-## MCP tools (optional)
+## Features
 
-The IDE can start the **OASIS Unified MCP Server** so you get 100+ tools (create wallet, mint NFT, health check, etc.) from the chat and panels. This repo does **not** include the MCP server; you point to it with **OASIS_MCP_SERVER_PATH**.
+| Panel | How to open |
+|-------|-------------|
+| **Chat (Web6 AI)** | Right panel — top slot. Streaming completions, FAHRN mode, provider/model selector |
+| **Inbox (A2A)** | Right panel — second slot |
+| **MCP Tools (243 tools)** | Right panel — third slot. Select tool → fill args → Execute |
+| **OASIS Network** | Right panel — fourth slot. Live health for all 6 layers |
+| **Explorer** | Left sidebar → ⬛ icon |
+| **Search** | Left sidebar → 🔍 icon, or **Ctrl+Shift+F** |
+| **Git** | Left sidebar → ± icon. Changes, diff, log, commit |
+| **STAR Wizard** | Left sidebar → ✦ icon. Scaffold a new OAPP |
+| **Terminal** | Bottom panel. Default OS shell + STAR CLI tabs; **+** for more |
+| **Settings** | ⚙ gear icon at the bottom of the Explorer panel |
 
-**Option A — You have the OASIS monorepo (or just the MCP folder):**
+---
 
-1. In that repo: `cd MCP && npm install && npm run build`
-2. Set the path to the built file, e.g.  
-   `export OASIS_MCP_SERVER_PATH=/path/to/OASIS/MCP/dist/src/index.js`
+## MCP tools
 
-**Option B — MCP is published as a package:**
+The IDE auto-starts the **Web6 .NET MCP server** (243 tools across Web4–Web10). If you have the server at a custom path, set `OASIS_MCP_SERVER_PATH`:
 
-1. Install it in this repo (e.g. `npm install @oasis-unified/mcp-server` if/when published).
-2. Set `OASIS_MCP_SERVER_PATH` to the package’s entry, e.g.  
-   `node_modules/@oasis-unified/mcp-server/dist/index.js` (full absolute path).
+- `.js` file → started with `node`
+- directory → started with `dotnet run --project`
+- `.exe` → run directly
 
-If **OASIS_MCP_SERVER_PATH** is not set, the IDE still runs; only the MCP tools won’t be available until you configure it.
+---
+
+## STAR CLI terminals
+
+The bottom panel always opens with two default tabs: an OS shell and a STAR CLI session. Press **+** to spawn additional OS shells or STAR CLI sessions. STAR CLI requires either building the STAR ODK (`net10.0/star.exe`) or setting `OASIS_STAR_CLI_PATH`.
 
 ---
 

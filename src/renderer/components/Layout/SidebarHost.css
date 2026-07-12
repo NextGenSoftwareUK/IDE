@@ -1,0 +1,54 @@
+.sidebar-host {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+.activity-bar {
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--bg-secondary, #161b22);
+  border-right: 1px solid var(--border, #222d42);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  gap: 2px;
+}
+
+.activity-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-secondary, #6a80a8);
+  transition: color 0.15s, background 0.15s;
+}
+
+.activity-btn:hover {
+  color: var(--text-primary, #c8d8ec);
+  background: rgba(255,255,255,0.06);
+}
+
+.activity-btn.active {
+  color: var(--text-primary, #c8d8ec);
+  background: rgba(255,255,255,0.08);
+  border-left: 2px solid var(--accent, #1f6feb);
+}
+
+.sidebar-panel {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

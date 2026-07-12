@@ -153,6 +153,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('terminal:exit', h);
   },
 
+  // ── File search ───────────────────────────────────────────────────────────
+  searchFiles: (query: string, dir?: string, extensions?: string[]) =>
+    ipcRenderer.invoke('fs:search-files', query, dir, extensions),
+
+  // ── Settings ──────────────────────────────────────────────────────────────
+  settingsGet: () => ipcRenderer.invoke('settings:get'),
+  settingsSave: (settings: Record<string, string>) => ipcRenderer.invoke('settings:save', settings),
+
+  // ── Git ───────────────────────────────────────────────────────────────────
+  gitStatus: (dir: string) => ipcRenderer.invoke('git:status', dir),
+  gitDiff: (dir: string, filePath?: string) => ipcRenderer.invoke('git:diff', dir, filePath),
+  gitLog: (dir: string, limit?: number) => ipcRenderer.invoke('git:log', dir, limit),
+  gitCommit: (dir: string, message: string, files: string[]) =>
+    ipcRenderer.invoke('git:commit', dir, message, files),
+  gitInit: (dir: string) => ipcRenderer.invoke('git:init', dir),
+
+  // ── STAR ODK wizard ───────────────────────────────────────────────────────
+  starGetTemplates: () => ipcRenderer.invoke('star:get-templates'),
+  starNewApp: (name: string, templateType: string, outputDir: string) =>
+    ipcRenderer.invoke('star:new-app', name, templateType, outputDir),
+
   // ── Window ────────────────────────────────────────────────────────────────
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),

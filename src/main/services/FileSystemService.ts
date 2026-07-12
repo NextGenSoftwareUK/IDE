@@ -96,4 +96,49 @@ export class FileSystemService {
   async writeFile(filePath: string, content: string): Promise<void> {
     await fs.writeFile(filePath, content, 'utf-8');
   }
+
+  async searchFiles(
+    query: string,
+    dir: string,
+    extensions?: string[]
+  ): Promise<Array<{ file: string; line: number; preview: string }>> {
+    const results: Array<{ file: string; line: number; preview: string }> = [];
+    const queryLower = query.toLowerCase();
+    await this.searchDir(dir, dir, queryLower, extensions ?? [], results, 0);
+    return results.slice(0, 500);
+  }
+
+  private async searchDir(
+    dir: string,
+    root: string,
+    query: string,
+    extensions: string[],
+    results: Array<{ file: string; line: number; preview: string }>,
+    depth: number
+  ): Promise<void> {
+    if (depth > 8 || results.length >= 500) return;
+    let entries;
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); }
+    catch { return; }
+    for (const entry of entries) {
+      if (this.shouldIgnore(entry.name, path.relative(root, path.join(dir, entry.name)))) continue;
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await this.searchDir(fullPath, root, query, extensions, results, depth + 1);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase().slice(1);
+        if (extensions.length > 0 && !extensions.includes(ext)) continue;
+        try {
+          const text = await fs.readFile(fullPath, 'utf-8');
+          const lines = text.split('\n');
+          lines.forEach((lineText, idx) => {
+            if (results.length >= 500) return;
+            if (lineText.toLowerCase().includes(query)) {
+              results.push({ file: fullPath, line: idx + 1, preview: lineText.trim().slice(0, 200) });
+            }
+          });
+        } catch { /* skip binary */ }
+      }
+    }
+  }
 }

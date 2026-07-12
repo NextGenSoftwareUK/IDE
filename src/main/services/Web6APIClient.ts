@@ -110,8 +110,16 @@ export class Web6APIClient {
     delete this.client.defaults.headers.common['Authorization'];
   }
 
-  getBaseURL(): string {
-    return this.baseURL;
+  getBaseURL(): string { return this.baseURL; }
+
+  setBaseURL(url: string) {
+    this.baseURL = url;
+    this.client.defaults.baseURL = url;
+  }
+
+  setApiKey(key: string) {
+    this.apiKey = key;
+    this.client.defaults.headers.common['X-Web6-Api-Key'] = key;
   }
 
   async healthCheck(): Promise<{ status: string; error?: string }> {

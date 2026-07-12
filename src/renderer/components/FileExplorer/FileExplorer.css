@@ -146,3 +146,10 @@
 .file-explorer-footer .footer-btn:hover {
   background: var(--bg-secondary);
 }
+
+.footer-btn-icon {
+  padding: 4px 7px !important;
+  font-size: 13px !important;
+  flex-shrink: 0;
+  margin-left: auto;
+}

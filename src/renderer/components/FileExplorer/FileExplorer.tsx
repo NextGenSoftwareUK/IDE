@@ -54,9 +54,10 @@ function FileTreeItem({
 
 interface FileExplorerProps {
   onLoginClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
-export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick }) => {
+export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSettingsClick }) => {
   const { workspacePath, tree, pickWorkspace, openFile, refreshTree } = useWorkspace();
   const { loggedIn, username, logout } = useAuth();
 
@@ -122,6 +123,9 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick }) => {
             Log in to OASIS
           </button>
         )}
+        <button type="button" className="footer-btn footer-btn-icon" onClick={onSettingsClick} title="Settings">
+          ⚙
+        </button>
       </div>
     </div>
   );

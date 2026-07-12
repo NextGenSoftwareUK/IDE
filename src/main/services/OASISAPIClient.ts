@@ -37,6 +37,11 @@ export class OASISAPIClient {
     return this.authToken;
   }
 
+  setBaseURL(url: string) {
+    this.baseURL = url;
+    this.client.defaults.baseURL = url;
+  }
+
   /**
    * Authenticate avatar against Web4 and get JWT.
    * Sets token for subsequent Web4 requests.
