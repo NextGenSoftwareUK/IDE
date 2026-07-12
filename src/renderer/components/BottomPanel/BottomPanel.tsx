@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TerminalPanel } from '../Terminal/TerminalPanel';
+import { ProblemsPanel } from '../Problems/ProblemsPanel';
 import './BottomPanel.css';
 
 type BottomTabId = 'terminal' | 'output' | 'problems' | 'debug';
@@ -89,11 +90,7 @@ export const BottomPanel: React.FC = () => {
             )}
           </div>
         )}
-        {activeTab === 'problems' && (
-          <div className="bottom-panel-placeholder">
-            <p>Problems and errors will appear here.</p>
-          </div>
-        )}
+        {activeTab === 'problems' && <ProblemsPanel />}
         {activeTab === 'debug' && (
           <div className="bottom-panel-placeholder">
             <p>Debug console output will appear here.</p>

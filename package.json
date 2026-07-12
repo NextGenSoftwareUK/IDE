@@ -17,6 +17,7 @@
     "build:main": "tsc --project tsconfig.main.json",
     "build:renderer": "vite build",
     "start": "electron .",
+    "postinstall": "electron-rebuild -f -w node-pty",
     "rebuild:terminal": "electron-rebuild -f -w node-pty",
     "package": "electron-builder",
     "package:mac": "electron-builder --mac",

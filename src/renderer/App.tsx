@@ -1,4 +1,13 @@
 import React, { useState, useEffect } from 'react';
+
+export interface DiagnosticEntry {
+  file: string;
+  line: number;
+  col: number;
+  severity: 'error' | 'warning' | 'info';
+  code: string;
+  message: string;
+}
 import { Layout } from './components/Layout/Layout';
 import { RightPanelStack } from './components/Layout/RightPanelStack';
 import { SidebarHost } from './components/Layout/SidebarHost';
@@ -153,6 +162,10 @@ export interface OASISElectronAPI {
   // ── STAR ODK wizard ───────────────────────────────────────────────────────────
   starNewApp: (name: string, templateType: string, outputDir: string) => Promise<{ success: boolean; path?: string; output?: string; error?: string }>;
   starGetTemplates: () => Promise<Array<{ id: string; name: string; description: string }>>;
+
+  // ── Diagnostics ───────────────────────────────────────────────────────────────
+  diagnosticsRunTsc: () => Promise<{ diagnostics: DiagnosticEntry[]; error?: string }>;
+  diagnosticsRunEslint: () => Promise<{ diagnostics: DiagnosticEntry[]; error?: string }>;
 
   // ── Window ────────────────────────────────────────────────────────────────────
   minimize: () => Promise<void>;

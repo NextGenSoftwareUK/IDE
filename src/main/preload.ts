@@ -191,6 +191,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   starNewApp: (name: string, templateType: string, outputDir: string) =>
     ipcRenderer.invoke('star:new-app', name, templateType, outputDir),
 
+  // ── Diagnostics ───────────────────────────────────────────────────────────
+  diagnosticsRunTsc: () => ipcRenderer.invoke('diagnostics:run-tsc'),
+  diagnosticsRunEslint: () => ipcRenderer.invoke('diagnostics:run-eslint'),
+
   // ── Window ────────────────────────────────────────────────────────────────
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),

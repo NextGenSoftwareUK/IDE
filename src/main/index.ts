@@ -15,6 +15,7 @@ import { OpenServAgentService, type OpenServAgentEvent } from './services/OpenSe
 import { SettingsService } from './services/SettingsService.js';
 import { GitService } from './services/GitService.js';
 import { StarWizardService } from './services/StarWizardService.js';
+import { DiagnosticsService } from './services/DiagnosticsService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,6 +39,7 @@ let openServAgentService: OpenServAgentService;
 let settingsService: SettingsService;
 let gitService: GitService;
 let starWizardService: StarWizardService;
+let diagnosticsService: DiagnosticsService;
 const pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
 // Default terminal session IDs created at startup (before renderer asks for them)
@@ -90,6 +92,7 @@ app.whenReady().then(async () => {
   settingsService = new SettingsService();
   gitService = new GitService();
   starWizardService = new StarWizardService();
+  diagnosticsService = new DiagnosticsService();
 
   const stored = await loadStoredAuth();
   if (stored?.token) {
@@ -557,3 +560,17 @@ ipcMain.handle('git:init', async (_, dir: string) => gitService.init(dir));
 ipcMain.handle('star:get-templates', () => starWizardService.getTemplates());
 ipcMain.handle('star:new-app', async (_, name: string, templateType: string, outputDir: string) =>
   starWizardService.createApp(name, templateType, outputDir));
+
+// ── Diagnostics ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('diagnostics:run-tsc', async () => {
+  const dir = fileSystemService.getWorkspacePath();
+  if (!dir) return { diagnostics: [], error: 'No workspace open' };
+  return diagnosticsService.runTsc(dir);
+});
+
+ipcMain.handle('diagnostics:run-eslint', async () => {
+  const dir = fileSystemService.getWorkspacePath();
+  if (!dir) return { diagnostics: [], error: 'No workspace open' };
+  return diagnosticsService.runEslint(dir);
+});
