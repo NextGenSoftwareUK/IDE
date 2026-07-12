@@ -1,4 +1,4 @@
-import { OASISAPIClient } from './OASISAPIClient.js';
+import { Web6APIClient } from './Web6APIClient.js';
 import { MCPServerManager } from './MCPServerManager.js';
 
 interface ProjectContext {
@@ -15,11 +15,11 @@ interface AgentResult {
 }
 
 export class AgentRuntime {
-  private oasisClient: OASISAPIClient;
+  private web6Client: Web6APIClient;
   private mcpManager: MCPServerManager;
 
   constructor() {
-    this.oasisClient = new OASISAPIClient();
+    this.web6Client = new Web6APIClient();
     this.mcpManager = new MCPServerManager();
   }
 
@@ -29,67 +29,33 @@ export class AgentRuntime {
     context?: ProjectContext
   ): Promise<AgentResult> {
     try {
-      // Get agent card
-      const agentCard = await this.oasisClient.getAgentCard(agentId);
+      const startTime = Date.now();
 
-      // Determine service from task
-      const service = this.determineService(task);
-
-      // Prepare request
-      const request = {
-        jsonrpc: '2.0',
-        method: 'service_request',
-        params: {
-          service: service,
-          task: task,
-          context: {
-            ...context,
-            mcpTools: await this.mcpManager.listTools(),
-            timestamp: Date.now()
-          }
-        },
-        id: this.generateId()
+      const a2aTask = {
+        Message: {
+          Role: 'user',
+          Parts: [{ Text: task, Type: 'text' }]
+        }
       };
 
-      // Send A2A request
-      const startTime = Date.now();
-      const response = await this.oasisClient.sendA2AMessage(agentId, request);
+      const { taskId, error } = await this.web6Client.a2aTaskSend(a2aTask);
+      if (error || !taskId) {
+        return { success: false, result: { error: error ?? 'No task ID returned' } };
+      }
+
+      const status = await this.web6Client.a2aTaskPoll(taskId, 60000);
       const executionTime = Date.now() - startTime;
 
+      const answer =
+        status.Result?.Parts?.map((p: any) => p.Text ?? '').join('') ?? '';
+
       return {
-        success: response.success !== false,
-        result: response.result || response,
-        toolCalls: response.toolCalls || [],
+        success: (status.State ?? '').toLowerCase() === 'completed',
+        result: { answer, state: status.State, raw: status },
         executionTime
       };
     } catch (error: any) {
-      return {
-        success: false,
-        result: { error: error.message }
-      };
+      return { success: false, result: { error: error.message } };
     }
-  }
-
-  private determineService(task: string): string {
-    const lowerTask = task.toLowerCase();
-    
-    if (lowerTask.includes('mint nft') || lowerTask.includes('nft')) {
-      return 'nft-minting';
-    }
-    if (lowerTask.includes('generate code') || lowerTask.includes('code')) {
-      return 'code-generation';
-    }
-    if (lowerTask.includes('analyze') || lowerTask.includes('data')) {
-      return 'data-analysis';
-    }
-    if (lowerTask.includes('wallet') || lowerTask.includes('transaction')) {
-      return 'wallet-operations';
-    }
-    
-    return 'general';
-  }
-
-  private generateId(): string {
-    return `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 }

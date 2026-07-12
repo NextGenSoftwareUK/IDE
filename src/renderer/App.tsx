@@ -5,6 +5,7 @@ import { ChatInterface } from './components/Chat/ChatInterface';
 import { FileExplorer } from './components/FileExplorer/FileExplorer';
 import { Editor } from './components/Editor/Editor';
 import { OASISToolsPanel } from './components/OASISTools/OASISToolsPanel';
+import { OASISNetworkPanel } from './components/OASISNetwork/OASISNetworkPanel';
 import { AgentPanel } from './components/Agents/AgentPanel';
 import { BottomPanel } from './components/BottomPanel/BottomPanel';
 import { InboxPanel } from './components/Inbox/InboxPanel';
@@ -90,6 +91,7 @@ function App() {
               <ChatInterface />
               <InboxPanel />
               <OASISToolsPanel />
+              <OASISNetworkPanel />
             </RightPanelStack>
             <BottomPanel />
             <AgentPanel />

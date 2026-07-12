@@ -1,40 +1,250 @@
 .oasis-tools-panel {
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.panel-refresh-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  display: inline-block;
+}
+
+.status-dot.success { background: var(--success); }
+.status-dot.error   { background: var(--error, #ff4444); }
+
+.tools-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tools-filter-input {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.tools-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tools-layout {
+  overflow-y: auto;
 }
 
 .tools-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px;
 }
 
 .tool-item {
-  padding: 12px;
-  margin-bottom: 8px;
+  padding: 8px 10px;
   background: var(--bg-tertiary);
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background 0.2s;
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .tool-item:hover {
   background: #3e3e42;
 }
 
+.tool-item.selected {
+  border-color: var(--accent);
+  background: #1e2a3a;
+}
+
 .tool-name {
   font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 4px;
+  font-size: 12px;
   color: var(--accent);
+  margin-bottom: 2px;
 }
 
 .tool-description {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.4;
+}
+
+/* Execution panel */
+.tool-exec-panel {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.tool-exec-title {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.tool-exec-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.tool-args {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.tool-arg {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tool-arg-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.required {
+  color: var(--error, #ff4444);
+}
+
+.tool-arg-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: normal;
+  opacity: 0.7;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-arg-input {
+  width: 100%;
+  resize: vertical;
+  font-size: 12px;
+  font-family: var(--font-mono, monospace);
+  padding: 5px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.tool-no-args {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+
+.tool-run-btn {
+  width: 100%;
+  padding: 7px;
+  font-size: 12px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.tool-run-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tool-result {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.tool-result.success { border-color: var(--success); }
+.tool-result.error   { border-color: var(--error, #ff4444); }
+
+.tool-result-label {
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.tool-result-output {
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  padding: 8px;
+  margin: 0;
+  max-height: 250px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
 }
 
 .loading, .empty-state {
   padding: 20px;
   text-align: center;
   color: var(--text-secondary);
+  font-size: 13px;
 }

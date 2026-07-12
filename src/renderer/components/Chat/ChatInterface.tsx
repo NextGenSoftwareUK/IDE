@@ -6,22 +6,33 @@ import './ChatInterface.css';
 
 const CHAT_STORAGE_KEY_PREFIX = 'oasis-ide-chat-';
 
+type AgentModeType = 'none' | 'claude' | 'openserv' | 'web6' | 'web6-fahrn';
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  streaming?: boolean;
   toolCalls?: Array<{ tool: string; result: any }>;
   error?: boolean;
-  confirm?: { requestId: string; kind: 'write' | 'command'; label: string; detail: string; resolved?: boolean };
+  confirm?: {
+    requestId: string;
+    kind: 'write' | 'command';
+    label: string;
+    detail: string;
+    resolved?: boolean;
+  };
+  meta?: { provider?: string; model?: string; costUsd?: number; taskType?: string };
 }
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
-  content: 'Hello! I\'m your OASIS IDE assistant. I can help you code, use OASIS tools, and work with agents. What would you like to do?\n\nTry:\n- "Check OASIS health"\n- "Create a Solana wallet"\n- "Mint an NFT"\n- "Show me the OASIS codebase structure"',
+  content:
+    'Hello! I\'m your OASIS IDE assistant. I can help you code, use OASIS tools, and work with Web6 AI agents.\n\nModes:\n- **Web6** — unified AI (auto-selects best provider)\n- **FAHRN** — multi-agent reasoning network\n- **Claude** / **OpenServ** — coding agents with workspace tools\n\nTry: "Explain this codebase" or "Write a Solana wallet integration"',
   timestamp: Date.now()
 };
 
-function getStorageKey(avatarId?: string): string {
+function getStorageKey(avatarId?: string) {
   return `${CHAT_STORAGE_KEY_PREFIX}${avatarId || 'default'}`;
 }
 
@@ -30,73 +41,120 @@ function loadPersistedMessages(avatarId?: string): Message[] | null {
     const raw = localStorage.getItem(getStorageKey(avatarId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Message[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    return parsed;
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
   } catch {
     return null;
   }
 }
 
-function savePersistedMessages(avatarId: string | undefined, messages: Message[]): void {
+function savePersistedMessages(avatarId: string | undefined, messages: Message[]) {
   try {
     localStorage.setItem(getStorageKey(avatarId), JSON.stringify(messages));
   } catch {
-    // ignore quota or parse errors
+    // ignore quota errors
   }
 }
 
-const getElectronAPI = () => (window as any).electronAPI;
+const getAPI = () => (window as any).electronAPI;
 
 export const ChatInterface: React.FC = () => {
   const { tools, executeTool, loading: mcpLoading } = useMCP();
   const { avatarId } = useAuth();
-  const [messages, setMessages] = useState<Message[]>(() => loadPersistedMessages(avatarId) ?? [INITIAL_MESSAGE]);
+
+  const [messages, setMessages] = useState<Message[]>(
+    () => loadPersistedMessages(avatarId) ?? [INITIAL_MESSAGE]
+  );
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [hasLLM, setHasLLM] = useState<boolean | null>(null);
-  const [defaultAgentId, setDefaultAgentId] = useState<string | null>(null);
-  const [aiAssistant, setAiAssistant] = useState<AIAssistant | null>(null);
-  const [hasClaudeAgent, setHasClaudeAgent] = useState<boolean>(false);
-  const [agentMode, setAgentMode] = useState<boolean>(false);
-  const [hasOpenServAgent, setHasOpenServAgent] = useState<boolean>(false);
+  const [agentMode, setAgentMode] = useState<AgentModeType>('web6');
+
+  // Available backends
+  const [hasLLM, setHasLLM] = useState(false);
+  const [hasClaudeAgent, setHasClaudeAgent] = useState(false);
+  const [hasOpenServAgent, setHasOpenServAgent] = useState(false);
   const [openServModels, setOpenServModels] = useState<Array<{ id: string; label: string }>>([]);
-  const [openServModel, setOpenServModel] = useState<string>('');
-  const [openServAgentMode, setOpenServAgentMode] = useState<boolean>(false);
+  const [openServModel, setOpenServModel] = useState('');
+  const [web6Provider, setWeb6Provider] = useState('auto');
+  const [web6Model, setWeb6Model] = useState('auto');
+  const [useStream, setUseStream] = useState(true);
+  const [injectAvatarCtx, setInjectAvatarCtx] = useState(false);
+  const [aiAssistant, setAiAssistant] = useState<AIAssistant | null>(null);
+
+  // Streaming state
+  const streamingIdRef = useRef<number | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check if Claude (Sonnet 4.6 via OpenServ) agent is configured (SERV_API_KEY set)
+  // ── Effect: check available backends ──────────────────────────────────────
+
   useEffect(() => {
-    const api = getElectronAPI();
-    if (api?.claudeHasAgent) {
-      api.claudeHasAgent().then((ok: boolean) => setHasClaudeAgent(ok)).catch(() => setHasClaudeAgent(false));
-    }
+    const api = getAPI();
+    api?.chatHasLLM?.().then((ok: boolean) => setHasLLM(ok)).catch(() => {});
+    api?.claudeHasAgent?.().then((ok: boolean) => setHasClaudeAgent(ok)).catch(() => {});
+    api?.openservHasAgent?.().then((ok: boolean) => setHasOpenServAgent(ok)).catch(() => {});
+    api?.openservListModels?.()
+      .then((models: Array<{ id: string; label: string }>) => {
+        setOpenServModels(models ?? []);
+        if (models?.length) setOpenServModel(models[0].id);
+      })
+      .catch(() => {});
   }, []);
 
-  // Check if the OpenServ agent (OpenAI SDK, any model in the SERV catalog) is configured
+  // ── Effect: streaming listeners ───────────────────────────────────────────
+
   useEffect(() => {
-    const api = getElectronAPI();
-    if (api?.openservHasAgent) {
-      api.openservHasAgent().then((ok: boolean) => setHasOpenServAgent(ok)).catch(() => setHasOpenServAgent(false));
-    }
-    if (api?.openservListModels) {
-      api.openservListModels()
-        .then((models: Array<{ id: string; label: string }>) => {
-          setOpenServModels(models || []);
-          if (models?.length) setOpenServModel(models[0].id);
-        })
-        .catch(() => setOpenServModels([]));
-    }
+    const api = getAPI();
+    if (!api) return;
+
+    const unChunk = api.onWeb6StreamChunk?.((delta: string) => {
+      const id = streamingIdRef.current;
+      if (id === null) return;
+      setMessages((prev) =>
+        prev.map((m, i) => (i === id ? { ...m, content: m.content + delta } : m))
+      );
+    });
+
+    const unDone = api.onWeb6StreamDone?.((full: string) => {
+      const id = streamingIdRef.current;
+      streamingIdRef.current = null;
+      if (id === null) return;
+      setMessages((prev) =>
+        prev.map((m, i) => (i === id ? { ...m, content: full, streaming: false } : m))
+      );
+      setLoading(false);
+    });
+
+    const unErr = api.onWeb6StreamError?.((err: string) => {
+      const id = streamingIdRef.current;
+      streamingIdRef.current = null;
+      if (id !== null) {
+        setMessages((prev) =>
+          prev.map((m, i) =>
+            i === id ? { ...m, content: `❌ Stream error: ${err}`, streaming: false, error: true } : m
+          )
+        );
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      unChunk?.();
+      unDone?.();
+      unErr?.();
+    };
   }, []);
 
-  // Listen for streamed OpenServ agent events (text, tool calls, confirmation requests)
+  // ── Effect: Claude/OpenServ event listeners ────────────────────────────────
+
   useEffect(() => {
-    const api = getElectronAPI();
-    if (!api?.onOpenservEvent) return;
-    const unsubscribe = api.onOpenservEvent((event: any) => {
+    const api = getAPI();
+    if (!api) return;
+
+    const handler = (event: any) => {
       if (event.type === 'tool-call') {
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: `🔧 ${event.name}(${JSON.stringify(event.input)})`, timestamp: Date.now() },
+          { role: 'assistant', content: `🔧 ${event.name}(${JSON.stringify(event.input)})`, timestamp: Date.now() }
         ]);
       } else if (event.type === 'confirm-request') {
         setMessages((prev) => [
@@ -105,292 +163,344 @@ export const ChatInterface: React.FC = () => {
             role: 'assistant',
             content: event.kind === 'write' ? `Proposed change — ${event.label}` : `Proposed command`,
             timestamp: Date.now(),
-            confirm: { requestId: event.requestId, kind: event.kind, label: event.label, detail: event.detail },
-          },
+            confirm: { requestId: event.requestId, kind: event.kind, label: event.label, detail: event.detail }
+          }
         ]);
       } else if (event.type === 'text') {
         setMessages((prev) => [...prev, { role: 'assistant', content: event.text, timestamp: Date.now() }]);
       } else if (event.type === 'error') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: `❌ ${event.message}`, timestamp: Date.now(), error: true }]);
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  // Listen for streamed agent events (text, tool calls, confirmation requests)
-  useEffect(() => {
-    const api = getElectronAPI();
-    if (!api?.onClaudeEvent) return;
-    const unsubscribe = api.onClaudeEvent((event: any) => {
-      if (event.type === 'tool-call') {
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'assistant',
-            content: `🔧 ${event.name}(${JSON.stringify(event.input)})`,
-            timestamp: Date.now(),
-          },
+          { role: 'assistant', content: `❌ ${event.message}`, timestamp: Date.now(), error: true }
         ]);
-      } else if (event.type === 'confirm-request') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: event.kind === 'write' ? `Proposed change — ${event.label}` : `Proposed command`,
-            timestamp: Date.now(),
-            confirm: { requestId: event.requestId, kind: event.kind, label: event.label, detail: event.detail },
-          },
-        ]);
-      } else if (event.type === 'text') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: event.text, timestamp: Date.now() }]);
-      } else if (event.type === 'error') {
-        setMessages((prev) => [...prev, { role: 'assistant', content: `❌ ${event.message}`, timestamp: Date.now(), error: true }]);
       }
-      // 'done' and 'tool-result' are not rendered as separate bubbles — 'done' summary
-      // already arrived as a 'text' event, and tool-results are usually long/noisy.
-    });
-    return unsubscribe;
+    };
+
+    const unClaude = api.onClaudeEvent?.(handler);
+    const unOpenServ = api.onOpenservEvent?.(handler);
+    return () => {
+      unClaude?.();
+      unOpenServ?.();
+    };
   }, []);
 
-  const respondToConfirm = (requestId: string, approved: boolean) => {
-    const api = getElectronAPI();
-    if (openServAgentMode) {
-      api?.openservConfirmResponse?.(requestId, approved);
-    } else {
-      api?.claudeConfirmResponse?.(requestId, approved);
-    }
-    setMessages((prev) =>
-      prev.map((m) => (m.confirm?.requestId === requestId ? { ...m, confirm: { ...m.confirm, resolved: true } } : m))
-    );
-  };
+  // ── Effect: persist / restore messages ───────────────────────────────────
 
-  // Load persisted history when avatar (or login state) changes
   useEffect(() => {
     const saved = loadPersistedMessages(avatarId);
     setMessages(saved ?? [INITIAL_MESSAGE]);
   }, [avatarId]);
 
-  // Persist messages whenever they change (debounce not required for localStorage)
   useEffect(() => {
     if (messages.length === 0) return;
     savePersistedMessages(avatarId, messages);
   }, [messages, avatarId]);
 
-  // Check if main process has LLM (OpenAI) available
-  useEffect(() => {
-    const api = getElectronAPI();
-    if (api?.chatHasLLM) {
-      api.chatHasLLM().then((ok: boolean) => setHasLLM(ok)).catch(() => setHasLLM(false));
-    } else {
-      setHasLLM(false);
-    }
-  }, []);
+  // ── Effect: AI assistant (offline fallback) ───────────────────────────────
 
-  // Default OASIS IDE Assistant agent ID (from env / constant in main)
-  useEffect(() => {
-    const api = getElectronAPI();
-    if (api?.chatGetDefaultAssistantAgentId) {
-      api.chatGetDefaultAssistantAgentId().then((id: string) => setDefaultAgentId(id || null)).catch(() => setDefaultAgentId(null));
-    }
-  }, []);
-
-  // Initialize AI Assistant when tools are loaded (fallback when no LLM)
   useEffect(() => {
     if (tools.length > 0 && !aiAssistant) {
-      const assistant = new AIAssistant(tools, executeTool);
-      setAiAssistant(assistant);
+      setAiAssistant(new AIAssistant(tools, executeTool));
     }
   }, [tools, executeTool, aiAssistant]);
 
-  // Auto-scroll to bottom
+  // ── Effect: auto-scroll ───────────────────────────────────────────────────
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const canSend = agentMode
-    ? hasClaudeAgent
-    : openServAgentMode
-    ? hasOpenServAgent
-    : !!(defaultAgentId || hasLLM || aiAssistant);
-  const conversationId = `ide-${avatarId || 'default'}`;
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  const pushAssistantMessage = (
+    content: string,
+    opts?: { toolCalls?: any[]; error?: boolean; meta?: Message['meta']; streaming?: boolean }
+  ): number => {
+    let idx = -1;
+    setMessages((prev) => {
+      idx = prev.length;
+      return [
+        ...prev,
+        {
+          role: 'assistant',
+          content,
+          timestamp: Date.now(),
+          ...(opts ?? {})
+        }
+      ];
+    });
+    return idx;
+  };
+
+  const respondToConfirm = (requestId: string, approved: boolean) => {
+    const api = getAPI();
+    if (agentMode === 'openserv') {
+      api?.openservConfirmResponse?.(requestId, approved);
+    } else {
+      api?.claudeConfirmResponse?.(requestId, approved);
+    }
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.confirm?.requestId === requestId ? { ...m, confirm: { ...m.confirm, resolved: true } } : m
+      )
+    );
+  };
+
+  const canSend =
+    agentMode === 'claude'
+      ? hasClaudeAgent
+      : agentMode === 'openserv'
+      ? hasOpenServAgent
+      : agentMode === 'web6' || agentMode === 'web6-fahrn'
+      ? true
+      : hasLLM || !!aiAssistant;
+
   const MAX_HISTORY = 20;
+
+  // ── Send ──────────────────────────────────────────────────────────────────
 
   const handleSend = async () => {
     if (!input.trim() || loading || !canSend) return;
 
-    const userMessage: Message = {
-      role: 'user',
-      content: input,
-      timestamp: Date.now()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    const userMsg: Message = { role: 'user', content: input, timestamp: Date.now() };
+    setMessages((prev) => [...prev, userMsg]);
     const currentInput = input;
     setInput('');
     setLoading(true);
 
-    const history = messages.slice(-MAX_HISTORY).map(m => ({ role: m.role, content: m.content }));
+    const history = messages
+      .slice(-MAX_HISTORY)
+      .filter((m) => !m.streaming && !m.confirm)
+      .map((m) => ({ role: m.role, content: m.content }));
 
-    const pushAssistantMessage = (content: string, toolCalls?: Array<{ tool: string; result: any }>, error?: boolean) => {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content,
-        timestamp: Date.now(),
-        toolCalls,
-        error
-      }]);
-    };
+    const api = getAPI();
 
     try {
-      const api = getElectronAPI();
-
-      // 0) Agent mode: run the full agentic Claude (OpenServ) loop on the workspace
-      if (agentMode && hasClaudeAgent && api?.claudeRunTask) {
+      // ── Claude coding agent ────────────────────────────────────────────────
+      if (agentMode === 'claude' && hasClaudeAgent && api?.claudeRunTask) {
         const result = await api.claudeRunTask(currentInput);
         if (!result?.success) {
-          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, undefined, true);
+          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, { error: true });
         }
-        // Successful runs already streamed their text/tool messages via claude:event.
-        return;
+        return; // events streamed via onClaudeEvent
       }
 
-      // 0b) Agent mode: run the agentic loop against any OpenServ model via the OpenAI SDK
-      if (openServAgentMode && hasOpenServAgent && api?.openservRunTask) {
+      // ── OpenServ coding agent ──────────────────────────────────────────────
+      if (agentMode === 'openserv' && hasOpenServAgent && api?.openservRunTask) {
         const result = await api.openservRunTask(currentInput, openServModel);
         if (!result?.success) {
-          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, undefined, true);
+          pushAssistantMessage(`❌ ${result?.summary || 'Agent task failed.'}`, { error: true });
         }
-        // Successful runs already streamed their text/tool messages via openserv:event.
+        return; // events streamed via onOpenservEvent
+      }
+
+      // ── Web6 FAHRN multi-agent solve ──────────────────────────────────────
+      if (agentMode === 'web6-fahrn' && api?.web6FahrnSolve) {
+        const req = {
+          Problem: currentInput,
+          TaskType: 'auto',
+          ...(avatarId && injectAvatarCtx ? { AvatarId: avatarId, InjectAvatarContext: true } : {})
+        };
+        const result = await api.web6FahrnSolve(req);
+        if (result?.IsError || result?.Error) {
+          pushAssistantMessage(`❌ ${result.Error ?? 'FAHRN solve failed'}`, { error: true });
+        } else {
+          const content = result?.Answer ?? 'No answer returned.';
+          const meta: Message['meta'] = { taskType: result?.TaskType };
+          pushAssistantMessage(content, { meta });
+          if (result?.ReasoningTrace) {
+            pushAssistantMessage(`📊 Reasoning trace:\n${result.ReasoningTrace}`, { meta });
+          }
+        }
         return;
       }
 
-      // 1) Try OASIS agent first when default agent ID is set
-      if (defaultAgentId && api?.chatWithAgent) {
-        const result = await api.chatWithAgent(
-          defaultAgentId,
-          currentInput,
-          conversationId,
-          history,
-          avatarId ?? undefined
-        );
-        if (!result.error && (result.content || (result.toolCalls && result.toolCalls.length > 0))) {
-          pushAssistantMessage(result.content || '', result.toolCalls, false);
-          return;
+      // ── Web6 standard completion (with optional streaming) ─────────────────
+      if (agentMode === 'web6' && api?.web6Complete) {
+        const msgs = [
+          ...history.map((m) => ({ role: m.role, content: m.content })),
+          { role: 'user', content: currentInput }
+        ];
+        const req = {
+          Provider: web6Provider,
+          Model: web6Model,
+          Messages: msgs,
+          ...(avatarId && injectAvatarCtx ? { AvatarId: avatarId, InjectAvatarContext: true } : {})
+        };
+
+        if (useStream && api?.web6StreamComplete) {
+          // Add a placeholder streaming bubble
+          const placeholderIdx = messages.length + 1; // +1 because we added userMsg above
+          setMessages((prev) => [
+            ...prev,
+            { role: 'assistant', content: '', timestamp: Date.now(), streaming: true }
+          ]);
+          streamingIdRef.current = placeholderIdx;
+          await api.web6StreamComplete(req);
+          // loading cleared by onWeb6StreamDone handler
+        } else {
+          const result = await api.web6Complete(req);
+          if (result?.IsError || result?.Error) {
+            pushAssistantMessage(`❌ ${result.Error ?? 'Web6 completion failed'}`, { error: true });
+          } else {
+            const meta: Message['meta'] = {
+              provider: result?.Provider,
+              model: result?.Model,
+              costUsd: result?.CostUsd
+            };
+            pushAssistantMessage(result?.Content ?? 'No response.', { meta });
+          }
+          setLoading(false);
         }
-        // Agent failed (error or empty) — fall through to fallback
+        return;
       }
 
-      // 2) Fallback: local LLM when available
+      // ── Local LLM fallback ─────────────────────────────────────────────────
       if (hasLLM && api?.chatComplete) {
-        const messagesForApi = [...history, { role: 'user' as const, content: currentInput }];
-        const result = await api.chatComplete(messagesForApi);
+        const msgs = [...history, { role: 'user' as const, content: currentInput }];
+        const result = await api.chatComplete(msgs);
         pushAssistantMessage(
           result.error ? `❌ ${result.error}` : (result.content || 'No response.'),
-          undefined,
-          !!result.error
+          { error: !!result.error }
         );
         return;
       }
 
-      // 3) Fallback: rule-based AI Assistant + MCP tools
+      // ── Offline rule-based fallback ────────────────────────────────────────
       if (aiAssistant) {
         const response = await aiAssistant.processMessage(currentInput);
-        pushAssistantMessage(response.response, response.toolCalls, response.error);
+        pushAssistantMessage(response.response, { toolCalls: response.toolCalls, error: response.error });
       } else {
-        pushAssistantMessage('Assistant not ready. Try again in a moment.', undefined, true);
+        pushAssistantMessage('Assistant not ready. Try again in a moment.', { error: true });
       }
     } catch (error: any) {
-      pushAssistantMessage(`❌ Error: ${error.message || 'Something went wrong'}`, undefined, true);
+      pushAssistantMessage(`❌ Error: ${error.message || 'Something went wrong'}`, { error: true });
     } finally {
-      setLoading(false);
+      // For streaming modes, loading is cleared by the event handlers
+      if (agentMode !== 'web6' || !useStream) setLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
+  const clearHistory = () => {
+    setMessages([INITIAL_MESSAGE]);
+    savePersistedMessages(avatarId, [INITIAL_MESSAGE]);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const modeOptions: Array<{ value: AgentModeType; label: string; available: boolean }> = [
+    { value: 'web6', label: 'Web6 (unified AI)', available: true },
+    { value: 'web6-fahrn', label: 'FAHRN (multi-agent)', available: true },
+    { value: 'claude', label: 'Claude coding agent', available: hasClaudeAgent },
+    { value: 'openserv', label: 'OpenServ coding agent', available: hasOpenServAgent },
+    { value: 'none', label: 'Local LLM / offline', available: hasLLM || !!aiAssistant },
+  ];
+
   return (
     <div className="chat-interface">
       <div className="chat-header">
-        <h3>Chat with agents</h3>
-        {mcpLoading && <span className="status-badge">Loading tools...</span>}
-        {!mcpLoading && tools.length > 0 && (
-          <span className="status-badge success">{tools.length} tools available</span>
-        )}
-        {!mcpLoading && tools.length === 0 && !canSend && (
-          <span className="status-badge error">No tools available - Check console</span>
-        )}
-        {defaultAgentId && (
-          <span className="status-badge success" title="Chat uses OASIS Agent first; falls back to Local LLM if needed">Assistant: OASIS Agent</span>
-        )}
-        {!defaultAgentId && hasLLM === true && (
-          <span className="status-badge success">Assistant: Local LLM</span>
-        )}
-        {!defaultAgentId && !hasLLM && aiAssistant && (
-          <span className="status-badge">Assistant: Offline (fallback)</span>
-        )}
-        {!canSend && !mcpLoading && (
-          <span className="status-badge">Set OPENAI_API_KEY or connect OASIS backend</span>
-        )}
-        {hasClaudeAgent && (
-          <label className="agent-mode-toggle" title="Run Claude Sonnet 4.6 (via OpenServ) as a coding agent on this workspace">
-            <input
-              type="checkbox"
-              checked={agentMode}
-              onChange={(e) => {
-                setAgentMode(e.target.checked);
-                if (e.target.checked) setOpenServAgentMode(false);
-              }}
-            />
-            Agent mode (Claude)
-          </label>
-        )}
-        {hasOpenServAgent && (
-          <label className="agent-mode-toggle" title="Run any OpenServ model (OpenAI SDK) as a coding agent on this workspace">
-            <input
-              type="checkbox"
-              checked={openServAgentMode}
-              onChange={(e) => {
-                setOpenServAgentMode(e.target.checked);
-                if (e.target.checked) setAgentMode(false);
-              }}
-            />
-            Agent mode (OpenServ)
-          </label>
-        )}
-        {openServAgentMode && openServModels.length > 0 && (
+        <h3>Chat</h3>
+        <div className="chat-header-controls">
           <select
-            className="agent-model-select"
-            value={openServModel}
-            onChange={(e) => setOpenServModel(e.target.value)}
-            title="Model used by the OpenServ agent"
+            className="chat-mode-select"
+            value={agentMode}
+            onChange={(e) => setAgentMode(e.target.value as AgentModeType)}
+            title="Choose AI backend"
           >
-            {openServModels.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
+            {modeOptions.filter((o) => o.available || o.value === agentMode).map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>
-        )}
+
+          {(agentMode === 'web6' || agentMode === 'web6-fahrn') && (
+            <>
+              {agentMode === 'web6' && (
+                <>
+                  <select
+                    className="chat-provider-select"
+                    value={web6Provider}
+                    onChange={(e) => setWeb6Provider(e.target.value)}
+                    title="Web6 AI provider"
+                  >
+                    {['auto','openai','anthropic','gemini','groq','mistral','cohere','xai','deepseek','ollama'].map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                  <label className="chat-toggle" title="Stream response token by token">
+                    <input type="checkbox" checked={useStream} onChange={(e) => setUseStream(e.target.checked)} />
+                    Stream
+                  </label>
+                </>
+              )}
+              <label className="chat-toggle" title="Inject OASIS avatar context (karma, quests) — requires login">
+                <input
+                  type="checkbox"
+                  checked={injectAvatarCtx}
+                  onChange={(e) => setInjectAvatarCtx(e.target.checked)}
+                  disabled={!avatarId}
+                />
+                Avatar ctx
+              </label>
+            </>
+          )}
+
+          {agentMode === 'openserv' && openServModels.length > 0 && (
+            <select
+              className="chat-provider-select"
+              value={openServModel}
+              onChange={(e) => setOpenServModel(e.target.value)}
+            >
+              {openServModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          )}
+
+          {!mcpLoading && tools.length > 0 && (
+            <span className="status-badge success">{tools.length} MCP tools</span>
+          )}
+
+          <button className="chat-clear-btn" onClick={clearHistory} title="Clear history">
+            Clear
+          </button>
+        </div>
       </div>
+
       <div className="chat-messages">
         {messages.map((msg, index) => (
           <div key={index} className={`message ${msg.role} ${msg.error ? 'error' : ''}`}>
             <div className="message-content">
-              {msg.content.split('\n').map((line, i) => (
-                <React.Fragment key={i}>
-                  {line}
-                  {i < msg.content.split('\n').length - 1 && <br />}
-                </React.Fragment>
-              ))}
+              {msg.streaming && !msg.content ? (
+                <span className="typing-indicator">Thinking</span>
+              ) : (
+                msg.content.split('\n').map((line, i, arr) => (
+                  <React.Fragment key={i}>
+                    {line}
+                    {i < arr.length - 1 && <br />}
+                  </React.Fragment>
+                ))
+              )}
+              {msg.streaming && msg.content && <span className="stream-cursor">▋</span>}
             </div>
+            {msg.meta && (msg.meta.provider || msg.meta.taskType) && (
+              <div className="message-meta">
+                {msg.meta.provider && <span>{msg.meta.provider}/{msg.meta.model}</span>}
+                {msg.meta.taskType && <span>task: {msg.meta.taskType}</span>}
+                {msg.meta.costUsd != null && <span>${msg.meta.costUsd.toFixed(4)}</span>}
+              </div>
+            )}
             {msg.toolCalls && msg.toolCalls.length > 0 && (
               <div className="tool-calls">
-                <div className="tool-call-label">Tool used: {msg.toolCalls[0].tool}</div>
+                <div className="tool-call-label">Tool: {msg.toolCalls[0].tool}</div>
               </div>
             )}
             {msg.confirm && (
@@ -398,10 +508,16 @@ export const ChatInterface: React.FC = () => {
                 <pre className="agent-confirm-detail">{msg.confirm.detail}</pre>
                 {!msg.confirm.resolved ? (
                   <div className="agent-confirm-actions">
-                    <button className="agent-confirm-approve" onClick={() => respondToConfirm(msg.confirm!.requestId, true)}>
+                    <button
+                      className="agent-confirm-approve"
+                      onClick={() => respondToConfirm(msg.confirm!.requestId, true)}
+                    >
                       {msg.confirm.kind === 'write' ? 'Apply' : 'Run'}
                     </button>
-                    <button className="agent-confirm-reject" onClick={() => respondToConfirm(msg.confirm!.requestId, false)}>
+                    <button
+                      className="agent-confirm-reject"
+                      onClick={() => respondToConfirm(msg.confirm!.requestId, false)}
+                    >
                       Reject
                     </button>
                   </div>
@@ -412,7 +528,7 @@ export const ChatInterface: React.FC = () => {
             )}
           </div>
         ))}
-        {loading && (
+        {loading && agentMode !== 'web6' && (
           <div className="message assistant">
             <div className="message-content">
               <span className="typing-indicator">Thinking</span>
@@ -421,20 +537,19 @@ export const ChatInterface: React.FC = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
+
       <div className="chat-input-container">
-        <input
+        <textarea
           className="chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder={canSend ? "Ask me anything..." : "Loading..."}
+          onKeyDown={handleKeyDown}
+          placeholder={canSend ? 'Ask anything… (Shift+Enter for newline)' : 'Loading…'}
           disabled={loading || !canSend}
+          rows={2}
         />
-        <button 
-          onClick={handleSend} 
-          disabled={loading || !input.trim() || !canSend}
-        >
-          {loading ? '...' : 'Send'}
+        <button onClick={handleSend} disabled={loading || !input.trim() || !canSend}>
+          {loading ? '…' : 'Send'}
         </button>
       </div>
     </div>
