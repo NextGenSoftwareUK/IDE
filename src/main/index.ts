@@ -625,3 +625,5 @@ ipcMain.handle('lsp:hover', (_, uri: string, line: number, character: number) =>
   lspService.getHover(uri, line, character));
 ipcMain.handle('lsp:definition', (_, uri: string, line: number, character: number) =>
   lspService.getDefinition(uri, line, character));
+ipcMain.handle('lsp:workspace-symbols', (_, query: string) =>
+  lspService.getWorkspaceSymbols(query));

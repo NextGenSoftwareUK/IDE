@@ -85,6 +85,22 @@ export const SettingsPanel: React.FC = () => {
           </div>
         )}
 
+        <div className="settings-field">
+          <label className="settings-label">Editor Theme</label>
+          <select
+            className="settings-input"
+            value={values['EDITOR_THEME'] ?? 'oasis-dark'}
+            onChange={(e) => handleChange('EDITOR_THEME', e.target.value)}
+          >
+            <option value="oasis-dark">OASIS Dark (default)</option>
+            <option value="vs-dark">VS Dark</option>
+            <option value="vs">VS Light</option>
+            <option value="hc-black">High Contrast</option>
+            <option value="monokai">Monokai</option>
+            <option value="one-dark">One Dark</option>
+          </select>
+        </div>
+
         <p className="settings-section-label">OASIS Services</p>
         <p className="settings-hint">
           Changes apply immediately to running layer clients. Restart the IDE after changing MCP or STAR paths.

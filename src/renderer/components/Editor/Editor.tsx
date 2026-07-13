@@ -5,6 +5,79 @@ import { useStatusBar } from '../../contexts/StatusBarContext';
 import { registerOASISSnippets } from './OASISSnippets';
 import './Editor.css';
 
+let themesRegistered = false;
+function ensureThemes() {
+  if (themesRegistered) return;
+  themesRegistered = true;
+
+  monaco.editor.defineTheme('oasis-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '5a7a9a', fontStyle: 'italic' },
+      { token: 'keyword', foreground: '7dd3fc' },
+      { token: 'string', foreground: '86efac' },
+      { token: 'number', foreground: 'fca5a5' },
+      { token: 'type', foreground: 'f9a8d4' },
+      { token: 'class', foreground: 'fde68a' },
+      { token: 'function', foreground: 'a5b4fc' },
+    ],
+    colors: {
+      'editor.background': '#091a2d',
+      'editor.foreground': '#c8d8ec',
+      'editorLineNumber.foreground': '#2a4a6a',
+      'editorLineNumber.activeForeground': '#5a8ac8',
+      'editor.selectionBackground': '#1a4a7a55',
+      'editor.lineHighlightBackground': '#0d2a4520',
+      'editorCursor.foreground': '#3b82f6',
+      'editorIndentGuide.background1': '#1a3a5c',
+    },
+  });
+
+  monaco.editor.defineTheme('monokai', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '75715e', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'f92672' },
+      { token: 'string', foreground: 'e6db74' },
+      { token: 'number', foreground: 'ae81ff' },
+      { token: 'type', foreground: '66d9e8' },
+      { token: 'function', foreground: 'a6e22e' },
+    ],
+    colors: {
+      'editor.background': '#272822',
+      'editor.foreground': '#f8f8f2',
+      'editorLineNumber.foreground': '#75715e',
+      'editor.selectionBackground': '#49483e',
+      'editor.lineHighlightBackground': '#3e3d32',
+      'editorCursor.foreground': '#f8f8f0',
+    },
+  });
+
+  monaco.editor.defineTheme('one-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'comment', foreground: '5c6370', fontStyle: 'italic' },
+      { token: 'keyword', foreground: 'c678dd' },
+      { token: 'string', foreground: '98c379' },
+      { token: 'number', foreground: 'd19a66' },
+      { token: 'type', foreground: 'e5c07b' },
+      { token: 'function', foreground: '61afef' },
+      { token: 'variable', foreground: 'e06c75' },
+    ],
+    colors: {
+      'editor.background': '#282c34',
+      'editor.foreground': '#abb2bf',
+      'editorLineNumber.foreground': '#4b5263',
+      'editor.selectionBackground': '#3e4451',
+      'editor.lineHighlightBackground': '#2c313c',
+      'editorCursor.foreground': '#528bff',
+    },
+  });
+}
+
 function languageFromPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   const map: Record<string, string> = {
@@ -161,13 +234,14 @@ export const Editor: React.FC<EditorProps> = ({
   // Create Monaco editor once
   useEffect(() => {
     if (!editorRef.current) return;
+    ensureThemes();
     registerLspProviders();
     registerOASISSnippets();
 
     const editor = monaco.editor.create(editorRef.current, {
       value: '',
       language: 'plaintext',
-      theme: 'vs-dark',
+      theme: 'oasis-dark',
       automaticLayout: true,
       minimap: { enabled: true },
       fontSize: 14,
@@ -336,6 +410,20 @@ export const Editor: React.FC<EditorProps> = ({
 
     return () => disposable.dispose();
   }, [setFileContent, activeTabPath]);
+
+  // Poll settings for theme changes (left pane drives global Monaco theme)
+  useEffect(() => {
+    if (isRightPane) return;
+    const apply = () => {
+      window.electronAPI?.settingsGet?.().then((s) => {
+        const t = s?.EDITOR_THEME ?? 'oasis-dark';
+        monaco.editor.setTheme(t);
+      });
+    };
+    apply();
+    const id = setInterval(apply, 5000);
+    return () => clearInterval(id);
+  }, [isRightPane]);
 
   // Track cursor position for status bar (left pane only)
   useEffect(() => {

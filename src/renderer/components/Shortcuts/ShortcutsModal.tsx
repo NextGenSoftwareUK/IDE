@@ -5,9 +5,17 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
   {
     group: 'File',
     items: [
-      { keys: ['Ctrl', 'P'],          desc: 'Open file (Command Palette)' },
-      { keys: ['Ctrl', 'S'],          desc: 'Save file' },
-      { keys: ['Ctrl', 'Shift', 'F'], desc: 'Search in workspace' },
+      { keys: ['Ctrl', 'P'],           desc: 'Go to File — fuzzy-open any workspace file' },
+      { keys: ['Ctrl', 'S'],           desc: 'Save file' },
+      { keys: ['Ctrl', 'Shift', 'F'],  desc: 'Search in workspace' },
+    ],
+  },
+  {
+    group: 'Navigate',
+    items: [
+      { keys: ['Ctrl', 'Shift', 'P'],  desc: 'Command Palette — run any IDE action' },
+      { keys: ['Ctrl', 'Shift', 'O'],  desc: 'Go to Symbol — search functions, classes, variables' },
+      { keys: ['F12'],                  desc: 'Go to Definition (LSP)' },
     ],
   },
   {
@@ -17,7 +25,6 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
       { keys: ['Ctrl', '='],  desc: 'Zoom in' },
       { keys: ['Ctrl', '-'],  desc: 'Zoom out' },
       { keys: ['Ctrl', '0'],  desc: 'Reset zoom' },
-      { keys: ['F12'],        desc: 'Go to definition' },
       { keys: ['?'],          desc: 'Show keyboard shortcuts' },
     ],
   },
@@ -38,13 +45,14 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
     group: 'Git Panel',
     items: [
       { keys: ['Click file', 'View Diff'], desc: 'Open diff for a changed file' },
+      { keys: ['Branch dropdown'],          desc: 'Checkout a branch' },
+      { keys: ['+'],                        desc: 'Create a new branch' },
     ],
   },
   {
     group: 'Window',
     items: [
-      { keys: ['Ctrl', 'Shift', 'P'], desc: 'Open Command Palette (alias)' },
-      { keys: ['Escape'],             desc: 'Close any modal / palette' },
+      { keys: ['Escape'],  desc: 'Close any modal / palette' },
     ],
   },
 ];

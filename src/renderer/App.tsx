@@ -35,6 +35,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ShortcutsModal } from './components/Shortcuts/ShortcutsModal';
 import { StatusBarProvider, useStatusBar } from './contexts/StatusBarContext';
 import { StatusBar } from './components/StatusBar/StatusBar';
+import { ActionPalette } from './components/ActionPalette/ActionPalette';
+import { SymbolSearch } from './components/SymbolSearch/SymbolSearch';
 
 export interface OASISElectronAPI {
   // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -192,6 +194,7 @@ export interface OASISElectronAPI {
   lspCompletion: (uri: string, line: number, character: number) => Promise<any>;
   lspHover: (uri: string, line: number, character: number) => Promise<any>;
   lspDefinition: (uri: string, line: number, character: number) => Promise<any>;
+  lspWorkspaceSymbols: (query: string) => Promise<any[]>;
   onLspDiagnostics: (cb: (params: { uri: string; diagnostics: any[] }) => void) => () => void;
 
   // ── Window ────────────────────────────────────────────────────────────────────
@@ -210,14 +213,22 @@ function AppInner() {
   const { cursorLine, cursorCol, lspReady } = useStatusBar();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showPalette, setShowPalette] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);   // Ctrl+P  — file picker
+  const [showActions, setShowActions] = useState(false);   // Ctrl+Shift+P — command palette
+  const [showSymbols, setShowSymbols] = useState(false);  // Ctrl+Shift+O — symbol search
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setShowActions((v) => !v);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        setShowSymbols((v) => !v);
+      } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'p') {
         e.preventDefault();
         setShowPalette((v) => !v);
       }
@@ -258,6 +269,16 @@ function AppInner() {
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showPalette && <CommandPalette onClose={() => setShowPalette(false)} />}
+      {showActions && (
+        <ActionPalette
+          onClose={() => setShowActions(false)}
+          onOpenSettings={() => setShowSettings(true)}
+          onOpenSymbols={() => setShowSymbols(true)}
+          onOpenFiles={() => setShowPalette(true)}
+          onOpenShortcuts={() => setShowShortcuts(true)}
+        />
+      )}
+      {showSymbols && <SymbolSearch onClose={() => setShowSymbols(false)} />}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </WorkspaceProvider>
   );
