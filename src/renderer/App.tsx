@@ -170,12 +170,19 @@ export interface OASISElectronAPI {
   gitLog: (dir: string, limit?: number) => Promise<Array<{ hash: string; message: string; author: string; date: string }>>;
   gitCommit: (dir: string, message: string, files: string[]) => Promise<{ success: boolean; error?: string }>;
   gitInit: (dir: string) => Promise<{ success: boolean; error?: string }>;
+  gitFileOriginal: (dir: string, filePath: string) => Promise<string>;
   gitCurrentBranch: (dir: string) => Promise<string>;
   gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
   gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
   gitCreateBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
   tabsGet: () => Promise<{ workspacePath: string; tabs: string[]; activeTab: string | null } | null>;
   tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) => Promise<void>;
+
+  // ── Scripts runner ────────────────────────────────────────────────────────────
+  scriptsRun: (dir: string, script: string) => Promise<string>;
+  scriptsKill: (id: string) => Promise<void>;
+  onScriptOutput: (cb: (id: string, chunk: string) => void) => () => void;
+  onScriptDone: (cb: (id: string, code: number) => void) => () => void;
 
   // ── STAR ODK wizard ───────────────────────────────────────────────────────────
   starNewApp: (name: string, templateType: string, outputDir: string) => Promise<{ success: boolean; path?: string; output?: string; error?: string }>;

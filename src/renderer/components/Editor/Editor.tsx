@@ -411,13 +411,20 @@ export const Editor: React.FC<EditorProps> = ({
     return () => disposable.dispose();
   }, [setFileContent, activeTabPath]);
 
-  // Poll settings for theme changes (left pane drives global Monaco theme)
+  // Poll settings for theme + editor option changes (left pane drives global Monaco theme)
   useEffect(() => {
     if (isRightPane) return;
     const apply = () => {
       window.electronAPI?.settingsGet?.().then((s) => {
-        const t = s?.EDITOR_THEME ?? 'oasis-dark';
-        monaco.editor.setTheme(t);
+        monaco.editor.setTheme(s?.EDITOR_THEME ?? 'oasis-dark');
+        const editor = monacoEditorRef.current;
+        if (editor) {
+          editor.updateOptions({
+            fontSize: Math.max(8, Math.min(32, parseInt(s?.EDITOR_FONT_SIZE ?? '14', 10) || 14)),
+            wordWrap: (s?.EDITOR_WORD_WRAP ?? 'on') as monaco.editor.IEditorOptions['wordWrap'],
+            minimap: { enabled: s?.EDITOR_MINIMAP !== 'false' },
+          });
+        }
       });
     };
     apply();

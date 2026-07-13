@@ -86,6 +86,45 @@ export const SettingsPanel: React.FC = () => {
         )}
 
         <div className="settings-field">
+          <label className="settings-label">Font Size</label>
+          <input
+            type="number"
+            className="settings-input"
+            value={values['EDITOR_FONT_SIZE'] ?? '14'}
+            min={8}
+            max={32}
+            step={1}
+            onChange={(e) => handleChange('EDITOR_FONT_SIZE', e.target.value)}
+          />
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-label">Word Wrap</label>
+          <select
+            className="settings-input"
+            value={values['EDITOR_WORD_WRAP'] ?? 'on'}
+            onChange={(e) => handleChange('EDITOR_WORD_WRAP', e.target.value)}
+          >
+            <option value="on">On</option>
+            <option value="off">Off</option>
+            <option value="wordWrapColumn">At column</option>
+            <option value="bounded">Bounded</option>
+          </select>
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-label">Minimap</label>
+          <select
+            className="settings-input"
+            value={values['EDITOR_MINIMAP'] ?? 'true'}
+            onChange={(e) => handleChange('EDITOR_MINIMAP', e.target.value)}
+          >
+            <option value="true">Enabled</option>
+            <option value="false">Disabled</option>
+          </select>
+        </div>
+
+        <div className="settings-field">
           <label className="settings-label">Editor Theme</label>
           <select
             className="settings-input"

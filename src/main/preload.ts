@@ -190,6 +190,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitCommit: (dir: string, message: string, files: string[]) =>
     ipcRenderer.invoke('git:commit', dir, message, files),
   gitInit: (dir: string) => ipcRenderer.invoke('git:init', dir),
+  gitFileOriginal: (dir: string, filePath: string) => ipcRenderer.invoke('git:file-original', dir, filePath),
   gitCurrentBranch: (dir: string) => ipcRenderer.invoke('git:current-branch', dir),
   gitListBranches: (dir: string) => ipcRenderer.invoke('git:list-branches', dir),
   gitCheckout: (dir: string, branch: string) => ipcRenderer.invoke('git:checkout', dir, branch),
@@ -199,6 +200,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   tabsGet: () => ipcRenderer.invoke('tabs:get'),
   tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) =>
     ipcRenderer.invoke('tabs:save', workspacePath, tabs, activeTab),
+
+  // ── Scripts runner ────────────────────────────────────────────────────────
+  scriptsRun: (dir: string, script: string) => ipcRenderer.invoke('scripts:run', dir, script),
+  scriptsKill: (id: string) => ipcRenderer.invoke('scripts:kill', id),
+  onScriptOutput: (cb: (id: string, chunk: string) => void) => {
+    const h = (_: unknown, id: string, chunk: string) => cb(id, chunk);
+    ipcRenderer.on('script:output', h);
+    return () => ipcRenderer.removeListener('script:output', h);
+  },
+  onScriptDone: (cb: (id: string, code: number) => void) => {
+    const h = (_: unknown, id: string, code: number) => cb(id, code);
+    ipcRenderer.on('script:done', h);
+    return () => ipcRenderer.removeListener('script:done', h);
+  },
 
   // ── STAR ODK wizard ───────────────────────────────────────────────────────
   starGetTemplates: () => ipcRenderer.invoke('star:get-templates'),

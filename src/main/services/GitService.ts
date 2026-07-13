@@ -86,4 +86,12 @@ export class GitService {
       return { success: true };
     } catch (e: any) { return { success: false, error: e.stderr ?? e.message }; }
   }
+
+  async getFileOriginal(dir: string, filePath: string): Promise<string> {
+    try {
+      // Normalise to forward slashes for git
+      const rel = filePath.replace(/\\/g, '/');
+      return await git(dir, ['show', `HEAD:${rel}`]);
+    } catch { return ''; }
+  }
 }

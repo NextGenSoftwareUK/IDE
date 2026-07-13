@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TerminalPanel } from '../Terminal/TerminalPanel';
 import { ProblemsPanel } from '../Problems/ProblemsPanel';
+import { ScriptsPanel } from '../Scripts/ScriptsPanel';
 import './BottomPanel.css';
 
-type BottomTabId = 'terminal' | 'output' | 'problems' | 'debug';
+type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'debug';
 
 interface OutputEntry {
   ts: number;
@@ -13,6 +14,7 @@ interface OutputEntry {
 
 const TABS: { id: BottomTabId; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
+  { id: 'scripts', label: 'Scripts' },
   { id: 'output', label: 'Output' },
   { id: 'problems', label: 'Problems' },
   { id: 'debug', label: 'Debug Console' },
@@ -70,6 +72,7 @@ export const BottomPanel: React.FC = () => {
       </div>
       <div className="bottom-panel-content">
         {activeTab === 'terminal' && <TerminalPanel />}
+        {activeTab === 'scripts' && <ScriptsPanel />}
         {activeTab === 'output' && (
           <div className="output-panel">
             {outputLog.length === 0 ? (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useToast } from '../../contexts/ToastContext';
+import { MonacoDiffViewer } from './MonacoDiffViewer';
 import './GitPanel.css';
 
 interface GitFile { path: string; status: string; }
@@ -30,6 +31,8 @@ export const GitPanel: React.FC = () => {
   const [files, setFiles] = useState<GitFile[]>([]);
   const [log, setLog] = useState<GitCommit[]>([]);
   const [diff, setDiff] = useState('');
+  const [originalContent, setOriginalContent] = useState('');
+  const [modifiedContent, setModifiedContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [commitMsg, setCommitMsg] = useState('');
   const [stagedFiles, setStagedFiles] = useState<Set<string>>(new Set());
@@ -76,6 +79,15 @@ export const GitPanel: React.FC = () => {
     if (!dir) return;
     setSelectedFile(filePath);
     setView('diff');
+    setOriginalContent('');
+    setModifiedContent('');
+    const [orig, mod] = await Promise.all([
+      api().gitFileOriginal?.(dir, filePath).catch(() => '') ?? Promise.resolve(''),
+      api().readFile?.(filePath).catch(() => '') ?? Promise.resolve(''),
+    ]);
+    setOriginalContent(orig ?? '');
+    setModifiedContent(mod ?? '');
+    // Keep raw diff as fallback
     const d = await api().gitDiff?.(dir, filePath) ?? '';
     setDiff(d || '(no diff)');
   }, [dir]);
@@ -279,7 +291,20 @@ export const GitPanel: React.FC = () => {
       {view === 'diff' && (
         <div className="git-diff-view">
           {selectedFile && <div className="git-diff-filename">{selectedFile}</div>}
-          <pre className="git-diff-content">{diff || 'Select a changed file to view its diff.'}</pre>
+          {selectedFile && (originalContent !== '' || modifiedContent !== '') ? (
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <MonacoDiffViewer
+                original={originalContent}
+                modified={modifiedContent}
+                language="plaintext"
+                filePath={selectedFile}
+              />
+            </div>
+          ) : (
+            <pre className="git-diff-content">
+              {selectedFile ? 'Loading diff…' : 'Select a changed file to view its diff.'}
+            </pre>
+          )}
         </div>
       )}
     </div>

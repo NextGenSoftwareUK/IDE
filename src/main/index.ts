@@ -17,6 +17,7 @@ import { GitService } from './services/GitService.js';
 import { StarWizardService } from './services/StarWizardService.js';
 import { DiagnosticsService } from './services/DiagnosticsService.js';
 import { LspService } from './services/LspService.js';
+import { spawn } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -627,3 +628,43 @@ ipcMain.handle('lsp:definition', (_, uri: string, line: number, character: numbe
   lspService.getDefinition(uri, line, character));
 ipcMain.handle('lsp:workspace-symbols', (_, query: string) =>
   lspService.getWorkspaceSymbols(query));
+
+// ── Git file original ────────────────────────────────────────────────────────
+ipcMain.handle('git:file-original', (_, dir: string, filePath: string) =>
+  gitService.getFileOriginal(dir, filePath));
+
+// ── Scripts runner ───────────────────────────────────────────────────────────
+const runningScripts = new Map<string, ReturnType<typeof spawn>>();
+
+ipcMain.handle('scripts:run', (event, dir: string, script: string) => {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const proc = spawn('npm', ['run', script], {
+    cwd: dir,
+    shell: true,
+    env: { ...process.env },
+  });
+  runningScripts.set(id, proc);
+
+  const send = (chunk: string) => {
+    try { event.sender.send('script:output', id, chunk); } catch {}
+  };
+
+  proc.stdout.on('data', (d: Buffer) => send(d.toString()));
+  proc.stderr.on('data', (d: Buffer) => send(d.toString()));
+  proc.on('close', (code) => {
+    try { event.sender.send('script:done', id, code ?? 0); } catch {}
+    runningScripts.delete(id);
+  });
+  proc.on('error', (err) => {
+    send(`\n[Error] ${err.message}\n`);
+    try { event.sender.send('script:done', id, 1); } catch {}
+    runningScripts.delete(id);
+  });
+
+  return id;
+});
+
+ipcMain.handle('scripts:kill', (_, id: string) => {
+  const proc = runningScripts.get(id);
+  if (proc) { try { proc.kill(); } catch {} runningScripts.delete(id); }
+});
