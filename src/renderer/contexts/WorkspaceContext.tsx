@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useToast } from './ToastContext';
 
 export interface TreeNode {
   name: string;
@@ -39,6 +40,7 @@ interface WorkspaceContextValue {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
+  const { success, error: toastError } = useToast();
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
@@ -196,8 +198,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setTabs((prev) =>
         prev.map((t) => t.path === path ? { ...t, savedContent: t.content } : t)
       );
+      const name = path.replace(/\\/g, '/').split('/').pop() ?? path;
+      success(`Saved ${name}`);
     } catch (err) {
       console.error('Failed to save file:', err);
+      toastError('Save failed');
     }
   }, [tabs]);
 

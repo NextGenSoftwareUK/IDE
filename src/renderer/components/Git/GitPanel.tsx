@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useToast } from '../../contexts/ToastContext';
 import './GitPanel.css';
 
 interface GitFile { path: string; status: string; }
@@ -24,6 +25,7 @@ function statusColor(s: string): string {
 
 export const GitPanel: React.FC = () => {
   const { workspacePath } = useWorkspace();
+  const { success, error: toastError } = useToast();
   const [view, setView] = useState<GitView>('changes');
   const [files, setFiles] = useState<GitFile[]>([]);
   const [log, setLog] = useState<GitCommit[]>([]);
@@ -82,9 +84,12 @@ export const GitPanel: React.FC = () => {
         setCommitMsg('');
         setStagedFiles(new Set());
         setCommitResult({ ok: true, msg: 'Committed successfully.' });
+        success('Committed successfully');
         await refresh();
       } else {
-        setCommitResult({ ok: false, msg: result?.error ?? 'Commit failed.' });
+        const msg = result?.error ?? 'Commit failed.';
+        setCommitResult({ ok: false, msg });
+        toastError(msg);
       }
     } finally { setCommitting(false); }
   }, [dir, commitMsg, stagedFiles, refresh]);

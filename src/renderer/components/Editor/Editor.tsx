@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { registerOASISSnippets } from './OASISSnippets';
 import './Editor.css';
 
 function languageFromPath(filePath: string): string {
@@ -159,6 +160,7 @@ export const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     if (!editorRef.current) return;
     registerLspProviders();
+    registerOASISSnippets();
 
     const editor = monaco.editor.create(editorRef.current, {
       value: '',
@@ -186,6 +188,17 @@ export const Editor: React.FC<EditorProps> = ({
     // Ctrl+H — open find & replace widget
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
       editor.getAction('editor.action.startFindReplaceAction')?.run();
+    });
+
+    // Ctrl+= / Ctrl+- — zoom in/out
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Equal, () => {
+      editor.getAction('editor.action.fontZoomIn')?.run();
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Minus, () => {
+      editor.getAction('editor.action.fontZoomOut')?.run();
+    });
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
+      editor.getAction('editor.action.fontZoomReset')?.run();
     });
 
     // F12 — go to definition via LSP

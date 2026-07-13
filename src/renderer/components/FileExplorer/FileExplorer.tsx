@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import type { TreeNode } from '../../contexts/WorkspaceContext';
 import './FileExplorer.css';
 
@@ -219,6 +220,7 @@ interface FileExplorerProps {
 export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSettingsClick }) => {
   const { workspacePath, recentWorkspaces, tree, pickWorkspace, openWorkspace, openFile, refreshTree } = useWorkspace();
   const { loggedIn, username, logout } = useAuth();
+  const { success, error: toastError } = useToast();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
@@ -263,11 +265,13 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSett
         await window.electronAPI?.createFile?.(fullPath);
         await refreshTree();
         openFile(fullPath);
+        success(`Created ${name}`);
       } else {
         await window.electronAPI?.createFolder?.(fullPath);
         await refreshTree();
+        success(`Created folder ${name}`);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); toastError(`Failed to create ${name}`); }
     closeEditing();
   }, [refreshTree, openFile, closeEditing]);
 
@@ -282,7 +286,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSett
     try {
       await window.electronAPI?.renameFile?.(node.path, newPath);
       await refreshTree();
-    } catch (e) { console.error(e); }
+      success(`Renamed to ${newName}`);
+    } catch (e) { console.error(e); toastError('Rename failed'); }
     closeEditing();
   }, [refreshTree, closeEditing]);
 
@@ -294,7 +299,8 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSett
     try {
       await window.electronAPI?.deleteFile?.(node.path);
       await refreshTree();
-    } catch (e) { console.error(e); }
+      success(`Deleted ${node.name}`);
+    } catch (e) { console.error(e); toastError(`Failed to delete ${node.name}`); }
   }, [refreshTree]);
 
   return (

@@ -31,6 +31,8 @@ import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { LoginModal } from './components/Auth/LoginModal';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
+import { ToastProvider } from './contexts/ToastContext';
+import { ShortcutsModal } from './components/Shortcuts/ShortcutsModal';
 
 export interface OASISElectronAPI {
   // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -200,12 +202,18 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
       if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
         e.preventDefault();
         setShowPalette((v) => !v);
+      }
+      if (e.key === '?' && !inInput && !e.ctrlKey && !e.metaKey) {
+        setShowShortcuts((v) => !v);
       }
     };
     window.addEventListener('keydown', handler);
@@ -214,6 +222,7 @@ function App() {
 
   return (
     <ThemeProvider>
+      <ToastProvider>
       <MCPProvider>
         <AgentProvider>
           <AuthProvider>
@@ -248,10 +257,14 @@ function App() {
               {showPalette && (
                 <CommandPalette onClose={() => setShowPalette(false)} />
               )}
+              {showShortcuts && (
+                <ShortcutsModal onClose={() => setShowShortcuts(false)} />
+              )}
             </WorkspaceProvider>
           </AuthProvider>
         </AgentProvider>
       </MCPProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
