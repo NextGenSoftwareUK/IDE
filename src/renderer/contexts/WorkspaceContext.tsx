@@ -7,20 +7,33 @@ export interface TreeNode {
   isDirectory: boolean;
 }
 
+export interface EditorTab {
+  path: string;
+  content: string;
+  savedContent: string; // last saved version — dirty = content !== savedContent
+}
+
 interface WorkspaceContextValue {
   workspacePath: string | null;
   recentWorkspaces: string[];
   tree: TreeNode[];
+  tabs: EditorTab[];
+  activeTabPath: string | null;
+  // derived convenience getters
   openFilePath: string | null;
   fileContent: string;
   dirty: boolean;
+  // actions
   pickWorkspace: () => Promise<void>;
   openWorkspace: (dir: string) => Promise<void>;
   refreshTree: () => Promise<void>;
   openFile: (path: string) => Promise<void>;
+  closeTab: (path: string) => void;
+  setActiveTab: (path: string) => void;
   setFileContent: (content: string) => void;
   setDirty: (dirty: boolean) => void;
   save: () => Promise<void>;
+  saveTab: (path: string) => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -29,11 +42,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [tabs, setTabs] = useState<EditorTab[]>([]);
+  const [activeTabPath, setActiveTabPathState] = useState<string | null>(null);
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load recents and restore last workspace on mount
   useEffect(() => {
     window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
-    // Restore workspace path if the main process already has one
     window.electronAPI?.getWorkspacePath?.().then((p: string | null) => {
       if (p) {
         setWorkspacePath(p);
@@ -42,19 +57,14 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       }
     });
   }, []);
-  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [openFilePath, setOpenFilePath] = useState<string | null>(null);
-  const [fileContent, setFileContentState] = useState<string>('');
-  const [dirty, setDirty] = useState(false);
 
   const openWorkspace = useCallback(async (dir: string) => {
     await window.electronAPI?.setWorkspacePath?.(dir);
     setWorkspacePath(dir);
     const list = await window.electronAPI?.listTree?.() ?? [];
     setTree(list);
-    setOpenFilePath(null);
-    setFileContentState('');
-    setDirty(false);
+    setTabs([]);
+    setActiveTabPathState(null);
     window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
   }, []);
 
@@ -82,36 +92,98 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTree]);
 
   const openFile = useCallback(async (path: string) => {
+    // If already open, just switch to it
+    setTabs((prev) => {
+      const exists = prev.find((t) => t.path === path);
+      if (exists) return prev;
+      return prev; // will be updated after content loads
+    });
+
+    const existing = tabs.find((t) => t.path === path);
+    if (existing) {
+      setActiveTabPathState(path);
+      return;
+    }
+
     if (!window.electronAPI?.readFile) return;
     try {
       const content = await window.electronAPI.readFile(path);
-      setOpenFilePath(path);
-      setFileContentState(content);
-      setDirty(false);
+      setTabs((prev) => {
+        if (prev.find((t) => t.path === path)) {
+          // Loaded while we were waiting — just activate
+          return prev;
+        }
+        return [...prev, { path, content, savedContent: content }];
+      });
+      setActiveTabPathState(path);
     } catch (err) {
       console.error('Failed to open file:', err);
     }
+  }, [tabs]);
+
+  const closeTab = useCallback((path: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.path === path);
+      if (idx < 0) return prev;
+      const next = prev.filter((_, i) => i !== idx);
+      setActiveTabPathState((active) => {
+        if (active !== path) return active;
+        // Activate adjacent tab
+        if (next.length === 0) return null;
+        return next[Math.max(0, idx - 1)].path;
+      });
+      return next;
+    });
+  }, []);
+
+  const setActiveTab = useCallback((path: string) => {
+    setActiveTabPathState(path);
   }, []);
 
   const setFileContent = useCallback((content: string) => {
-    setFileContentState(content);
-    setDirty(true);
-  }, []);
+    setTabs((prev) =>
+      prev.map((t) => t.path === activeTabPath ? { ...t, content } : t)
+    );
+  }, [activeTabPath]);
 
-  const save = useCallback(async () => {
-    if (!openFilePath || !window.electronAPI?.writeFile) return;
+  // Legacy compat — mark a tab clean
+  const setDirty = useCallback((_dirty: boolean) => {
+    if (!_dirty && activeTabPath) {
+      setTabs((prev) =>
+        prev.map((t) => t.path === activeTabPath ? { ...t, savedContent: t.content } : t)
+      );
+    }
+  }, [activeTabPath]);
+
+  const saveTab = useCallback(async (path: string) => {
+    const tab = tabs.find((t) => t.path === path);
+    if (!tab || !window.electronAPI?.writeFile) return;
     try {
-      await window.electronAPI.writeFile(openFilePath, fileContent);
-      setDirty(false);
+      await window.electronAPI.writeFile(path, tab.content);
+      setTabs((prev) =>
+        prev.map((t) => t.path === path ? { ...t, savedContent: t.content } : t)
+      );
     } catch (err) {
       console.error('Failed to save file:', err);
     }
-  }, [openFilePath, fileContent]);
+  }, [tabs]);
+
+  const save = useCallback(async () => {
+    if (activeTabPath) await saveTab(activeTabPath);
+  }, [activeTabPath, saveTab]);
+
+  // Derived convenience values for the active tab
+  const activeTab = tabs.find((t) => t.path === activeTabPath) ?? null;
+  const openFilePath = activeTab?.path ?? null;
+  const fileContent = activeTab?.content ?? '';
+  const dirty = activeTab ? activeTab.content !== activeTab.savedContent : false;
 
   const value: WorkspaceContextValue = {
     workspacePath,
     recentWorkspaces,
     tree,
+    tabs,
+    activeTabPath,
     openFilePath,
     fileContent,
     dirty,
@@ -119,9 +191,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     openWorkspace,
     refreshTree,
     openFile,
+    closeTab,
+    setActiveTab,
     setFileContent,
     setDirty,
     save,
+    saveTab,
   };
 
   return (

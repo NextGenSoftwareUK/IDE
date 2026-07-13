@@ -7,23 +7,133 @@
   min-height: 0;
 }
 
-.editor-toolbar {
+/* ── Tab bar ──────────────────────────────────────────────────────────────── */
+
+.editor-tabs-bar {
+  display: flex;
+  align-items: stretch;
   flex-shrink: 0;
-  padding: 4px 12px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: var(--bg-secondary, #252526);
   border-bottom: 1px solid var(--border);
+  min-height: 35px;
+}
+
+.editor-tabs-bar::-webkit-scrollbar { height: 3px; }
+.editor-tabs-bar::-webkit-scrollbar-thumb { background: var(--border); }
+
+.editor-no-tabs {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
   font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.editor-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 0;
+  border-bottom: 2px solid transparent;
+  user-select: none;
+}
+
+.editor-tab-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.editor-tab-item.active {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-bottom-color: var(--accent, #569cd6);
+}
+
+.editor-tab-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editor-tab-dirty {
+  font-size: 10px;
+  color: var(--accent, #569cd6);
+  flex-shrink: 0;
+}
+
+.editor-tab-close {
+  padding: 1px 3px;
+  font-size: 10px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 1;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.editor-tab-item:hover .editor-tab-close,
+.editor-tab-item.active .editor-tab-close {
+  opacity: 1;
+}
+
+.editor-tab-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────────────────────── */
+
+.editor-breadcrumb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 3px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  font-size: 11px;
   color: var(--text-secondary);
 }
 
-.editor-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.editor-breadcrumb-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
-.editor-dirty {
-  color: var(--accent, #569cd6);
+.editor-save-btn {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  font-size: 11px;
+  background: var(--accent, #569cd6);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
 }
+
+.editor-save-btn:hover { opacity: 0.85; }
+
+/* ── Monaco editor ────────────────────────────────────────────────────────── */
 
 .editor {
   flex: 1;
