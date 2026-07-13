@@ -628,6 +628,8 @@ ipcMain.handle('lsp:definition', (_, uri: string, line: number, character: numbe
   lspService.getDefinition(uri, line, character));
 ipcMain.handle('lsp:workspace-symbols', (_, query: string) =>
   lspService.getWorkspaceSymbols(query));
+ipcMain.handle('lsp:document-symbols', (_, uri: string) =>
+  lspService.getDocumentSymbols(uri));
 
 // ── Git file original ────────────────────────────────────────────────────────
 ipcMain.handle('git:file-original', (_, dir: string, filePath: string) =>

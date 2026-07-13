@@ -240,6 +240,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('lsp:definition', uri, line, character),
   lspWorkspaceSymbols: (query: string) =>
     ipcRenderer.invoke('lsp:workspace-symbols', query),
+  lspDocumentSymbols: (uri: string) =>
+    ipcRenderer.invoke('lsp:document-symbols', uri),
   onLspDiagnostics: (cb: (params: any) => void) => {
     const h = (_: unknown, p: any) => cb(p);
     ipcRenderer.on('lsp:diagnostics', h);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import './StatusBar.css';
 
@@ -6,6 +6,11 @@ interface StatusBarProps {
   cursorLine?: number;
   cursorCol?: number;
   lspReady?: boolean;
+  eol?: 'LF' | 'CRLF';
+  indentType?: 'spaces' | 'tabs';
+  indentSize?: number;
+  onEolChange?: (eol: 'LF' | 'CRLF') => void;
+  onIndentChange?: (type: 'spaces' | 'tabs', size: number) => void;
 }
 
 function languageFromPath(p: string | null): string {
@@ -20,9 +25,17 @@ function languageFromPath(p: string | null): string {
   return map[ext] ?? (ext.toUpperCase() || 'Plain Text');
 }
 
-export function StatusBar({ cursorLine = 1, cursorCol = 1, lspReady = false }: StatusBarProps) {
+const INDENT_SIZES = [2, 4, 8];
+
+export function StatusBar({
+  cursorLine = 1, cursorCol = 1, lspReady = false,
+  eol = 'LF', indentType = 'spaces', indentSize = 2,
+  onEolChange, onIndentChange,
+}: StatusBarProps) {
   const { workspacePath, activeTabPath } = useWorkspace();
   const [branch, setBranch] = useState<string>('');
+  const [indentMenu, setIndentMenu] = useState(false);
+  const indentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!workspacePath) { setBranch(''); return; }
@@ -36,6 +49,16 @@ export function StatusBar({ cursorLine = 1, cursorCol = 1, lspReady = false }: S
     const id = setInterval(refresh, 10000);
     return () => { cancelled = true; clearInterval(id); };
   }, [workspacePath]);
+
+  // Close indent menu on outside click
+  useEffect(() => {
+    if (!indentMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (indentRef.current && !indentRef.current.contains(e.target as Node)) setIndentMenu(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [indentMenu]);
 
   const lang = languageFromPath(activeTabPath);
 
@@ -56,7 +79,48 @@ export function StatusBar({ cursorLine = 1, cursorCol = 1, lspReady = false }: S
           {lspReady ? 'LSP ready' : 'LSP loading'}
         </span>
       </div>
+
       <div className="status-bar__right">
+        {/* Indent picker */}
+        <div ref={indentRef} className="status-bar__indent-wrap">
+          <button
+            type="button"
+            className="status-bar__item status-bar__btn"
+            title="Indentation — click to change"
+            onClick={() => setIndentMenu((v) => !v)}
+          >
+            {indentType === 'spaces' ? `Spaces: ${indentSize}` : `Tab Size: ${indentSize}`}
+          </button>
+          {indentMenu && (
+            <div className="status-bar__menu">
+              <div className="status-bar__menu-header">Indent using spaces</div>
+              {INDENT_SIZES.map((n) => (
+                <button key={n} type="button" className={`status-bar__menu-item ${indentType === 'spaces' && indentSize === n ? 'active' : ''}`}
+                  onClick={() => { onIndentChange?.('spaces', n); setIndentMenu(false); }}>
+                  {n} spaces
+                </button>
+              ))}
+              <div className="status-bar__menu-header">Indent using tabs</div>
+              {INDENT_SIZES.map((n) => (
+                <button key={n} type="button" className={`status-bar__menu-item ${indentType === 'tabs' && indentSize === n ? 'active' : ''}`}
+                  onClick={() => { onIndentChange?.('tabs', n); setIndentMenu(false); }}>
+                  Tab width: {n}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* EOL toggle */}
+        <button
+          type="button"
+          className="status-bar__item status-bar__btn"
+          title={`Line endings: ${eol} — click to toggle`}
+          onClick={() => onEolChange?.(eol === 'LF' ? 'CRLF' : 'LF')}
+        >
+          {eol}
+        </button>
+
         <span className="status-bar__item">{lang}</span>
         <span className="status-bar__item status-bar__cursor">
           Ln {cursorLine}, Col {cursorCol}

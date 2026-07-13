@@ -1,23 +1,25 @@
 import React, { useState, ReactNode } from 'react';
 import './SidebarHost.css';
 
-export type SidebarTab = 'explorer' | 'search' | 'git' | 'star';
+export type SidebarTab = 'explorer' | 'search' | 'git' | 'outline' | 'star';
 
 interface SidebarHostProps {
   explorer: ReactNode;
   search: ReactNode;
   git: ReactNode;
+  outline: ReactNode;
   star: ReactNode;
 }
 
 const TABS: Array<{ id: SidebarTab; icon: string; title: string }> = [
   { id: 'explorer', icon: '⬛', title: 'Explorer' },
   { id: 'search',   icon: '🔍', title: 'Search (Ctrl+Shift+F)' },
-  { id: 'git',      icon: '±', title: 'Source Control' },
-  { id: 'star',     icon: '✦', title: 'New OAPP (STAR Wizard)' },
+  { id: 'git',      icon: '±',  title: 'Source Control' },
+  { id: 'outline',  icon: '≡',  title: 'Outline (Ctrl+Shift+O opens symbol search)' },
+  { id: 'star',     icon: '✦',  title: 'New OAPP (STAR Wizard)' },
 ];
 
-export const SidebarHost: React.FC<SidebarHostProps> = ({ explorer, search, git, star }) => {
+export const SidebarHost: React.FC<SidebarHostProps> = ({ explorer, search, git, outline, star }) => {
   const [active, setActive] = useState<SidebarTab>('explorer');
 
   // Ctrl+Shift+F opens Search tab
@@ -32,7 +34,7 @@ export const SidebarHost: React.FC<SidebarHostProps> = ({ explorer, search, git,
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const panels: Record<SidebarTab, ReactNode> = { explorer, search, git, star };
+  const panels: Record<SidebarTab, ReactNode> = { explorer, search, git, outline, star };
 
   return (
     <div className="sidebar-host">

@@ -55,3 +55,56 @@
   color: #a8bfd8;
   font-variant-numeric: tabular-nums;
 }
+
+.status-bar__btn {
+  background: transparent;
+  border: none;
+  color: #a8bfd8;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+.status-bar__btn:hover { color: #e2f0ff; }
+
+.status-bar__indent-wrap {
+  position: relative;
+}
+
+.status-bar__menu {
+  position: absolute;
+  bottom: 28px;
+  right: 0;
+  background: #0d1f35;
+  border: 1px solid #1a4a7a;
+  border-radius: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  min-width: 160px;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.status-bar__menu-header {
+  padding: 5px 10px 3px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #6a80a8;
+  border-top: 1px solid #1a3a5c;
+}
+.status-bar__menu-header:first-child { border-top: none; }
+
+.status-bar__menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 12px;
+  background: transparent;
+  border: none;
+  color: #a8bfd8;
+  font-size: 12px;
+  cursor: pointer;
+}
+.status-bar__menu-item:hover { background: rgba(59,130,246,0.15); color: #e2f0ff; }
+.status-bar__menu-item.active { color: #7dd3fc; }
+

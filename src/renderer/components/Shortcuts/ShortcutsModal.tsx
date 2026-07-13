@@ -21,6 +21,7 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
   {
     group: 'Editor',
     items: [
+      { keys: ['Ctrl', 'Shift', 'I'], desc: 'Format document (LSP formatter)' },
       { keys: ['Ctrl', 'H'],  desc: 'Find & replace in file' },
       { keys: ['Ctrl', '='],  desc: 'Zoom in' },
       { keys: ['Ctrl', '-'],  desc: 'Zoom out' },

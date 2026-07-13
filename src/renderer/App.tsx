@@ -37,6 +37,7 @@ import { StatusBarProvider, useStatusBar } from './contexts/StatusBarContext';
 import { StatusBar } from './components/StatusBar/StatusBar';
 import { ActionPalette } from './components/ActionPalette/ActionPalette';
 import { SymbolSearch } from './components/SymbolSearch/SymbolSearch';
+import { OutlinePanel } from './components/Outline/OutlinePanel';
 
 export interface OASISElectronAPI {
   // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -202,6 +203,7 @@ export interface OASISElectronAPI {
   lspHover: (uri: string, line: number, character: number) => Promise<any>;
   lspDefinition: (uri: string, line: number, character: number) => Promise<any>;
   lspWorkspaceSymbols: (query: string) => Promise<any[]>;
+  lspDocumentSymbols: (uri: string) => Promise<any[]>;
   onLspDiagnostics: (cb: (params: { uri: string; diagnostics: any[] }) => void) => () => void;
 
   // ── Window ────────────────────────────────────────────────────────────────────
@@ -217,7 +219,7 @@ declare global {
 }
 
 function AppInner() {
-  const { cursorLine, cursorCol, lspReady } = useStatusBar();
+  const { cursorLine, cursorCol, lspReady, eol, indentType, indentSize } = useStatusBar();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);   // Ctrl+P  — file picker
@@ -258,6 +260,7 @@ function AppInner() {
             />}
             search={<SearchPanel />}
             git={<GitPanel />}
+            outline={<OutlinePanel />}
             star={<StarWizardPanel />}
           />
           <SplitEditor />
@@ -270,7 +273,12 @@ function AppInner() {
           <BottomPanel />
           <AgentPanel />
         </Layout>
-        <StatusBar cursorLine={cursorLine} cursorCol={cursorCol} lspReady={lspReady} />
+        <StatusBar
+          cursorLine={cursorLine} cursorCol={cursorCol} lspReady={lspReady}
+          eol={eol} indentType={indentType} indentSize={indentSize}
+          onEolChange={(e) => window.dispatchEvent(new CustomEvent('oasis-set-eol', { detail: e }))}
+          onIndentChange={(t, s) => window.dispatchEvent(new CustomEvent('oasis-set-indent', { detail: { type: t, size: s } }))}
+        />
       </div>
       <StartupWarning />
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}

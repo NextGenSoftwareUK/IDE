@@ -54,6 +54,8 @@ export const ActionPalette: React.FC<Props> = ({
       run: () => { onClose(); onOpenShortcuts(); } },
     { id: 'git.refresh', label: 'Git: Refresh Status', category: 'Git',
       run: () => { window.electronAPI?.gitStatus?.(workspacePath ?? '').then(() => success('Git refreshed')); onClose(); } },
+    { id: 'editor.format', label: 'Format Document', description: 'Auto-format using the LSP formatter', shortcut: 'Ctrl+Shift+I', category: 'Editor',
+      run: () => { window.dispatchEvent(new CustomEvent('oasis-format-document')); onClose(); } },
     { id: 'lsp.restart', label: 'Developer: Restart Language Server', category: 'Developer',
       run: () => {
         window.electronAPI?.lspStop?.().then(() => {

@@ -222,7 +222,7 @@ export const Editor: React.FC<EditorProps> = ({
     tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile,
   } = useWorkspace();
-  const { setCursor, setLspReady } = useStatusBar();
+  const { setCursor, setLspReady, setEol, setIndent } = useStatusBar();
 
   // In right-pane mode, use override values; otherwise use context
   const isRightPane = overrideTabPath !== undefined;
@@ -275,6 +275,11 @@ export const Editor: React.FC<EditorProps> = ({
     });
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Digit0, () => {
       editor.getAction('editor.action.fontZoomReset')?.run();
+    });
+
+    // Ctrl+Shift+I — format document (LSP formatter)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI, () => {
+      editor.getAction('editor.action.formatDocument')?.run();
     });
 
     // F12 — go to definition via LSP
@@ -432,16 +437,66 @@ export const Editor: React.FC<EditorProps> = ({
     return () => clearInterval(id);
   }, [isRightPane]);
 
-  // Track cursor position for status bar (left pane only)
+  // Track cursor position + model EOL/indent for status bar (left pane only)
   useEffect(() => {
     if (isRightPane) return;
     const editor = monacoEditorRef.current;
     if (!editor) return;
-    const d = editor.onDidChangeCursorPosition((e) => {
+
+    const syncModelMeta = () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const eolVal = model.getEOL();
+      setEol(eolVal === '\r\n' ? 'CRLF' : 'LF');
+      const opts = model.getOptions();
+      setIndent(opts.insertSpaces ? 'spaces' : 'tabs', opts.tabSize);
+    };
+
+    const dCursor = editor.onDidChangeCursorPosition((e) => {
       setCursor(e.position.lineNumber, e.position.column);
     });
-    return () => d.dispose();
-  }, [isRightPane, setCursor]);
+    const dModel = editor.onDidChangeModel(() => syncModelMeta());
+    const dOpts = editor.onDidChangeModelOptions(() => syncModelMeta());
+    syncModelMeta();
+
+    // Handle EOL change from status bar click
+    const handleEol = (e: Event) => {
+      const model = editor.getModel();
+      if (!model) return;
+      const eolStr = (e as CustomEvent<string>).detail;
+      model.pushEOL(eolStr === 'CRLF' ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF);
+      setEol(eolStr === 'CRLF' ? 'CRLF' : 'LF');
+    };
+
+    // Handle indent change from status bar click
+    const handleIndent = (e: Event) => {
+      const { type, size } = (e as CustomEvent<{ type: string; size: number }>).detail;
+      editor.getModel()?.updateOptions({ tabSize: size, insertSpaces: type === 'spaces' });
+      setIndent(type === 'spaces' ? 'spaces' : 'tabs', size);
+    };
+
+    // Handle jump-to-line from Outline panel
+    const handleGotoLine = (e: Event) => {
+      const line = (e as CustomEvent<number>).detail;
+      editor.revealLineInCenter(line);
+      editor.setPosition({ lineNumber: line, column: 1 });
+      editor.focus();
+    };
+
+    const handleFormat = () => { if (!isRightPane) editor.getAction('editor.action.formatDocument')?.run(); };
+    window.addEventListener('oasis-format-document', handleFormat);
+    window.addEventListener('oasis-set-eol', handleEol);
+    window.addEventListener('oasis-set-indent', handleIndent);
+    window.addEventListener('oasis-goto-line', handleGotoLine);
+
+    return () => {
+      dCursor.dispose(); dModel.dispose(); dOpts.dispose();
+      window.removeEventListener('oasis-format-document', handleFormat);
+      window.removeEventListener('oasis-set-eol', handleEol);
+      window.removeEventListener('oasis-set-indent', handleIndent);
+      window.removeEventListener('oasis-goto-line', handleGotoLine);
+    };
+  }, [isRightPane, setCursor, setEol, setIndent]);
 
   // Dispose models for closed tabs
   useEffect(() => {
