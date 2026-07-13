@@ -40,7 +40,9 @@
     "react-markdown": "^9.0.1",
     "react-resizable-panels": "^2.0.0",
     "simple-git": "^3.20.0",
+    "typescript-language-server": "^5.3.0",
     "uuid": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.18.2",
     "xterm": "^5.3.0",
     "xterm-addon-fit": "^0.8.0",
     "zod": "^3.22.4"

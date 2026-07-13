@@ -114,6 +114,50 @@
   margin-top: 12px;
 }
 
+.recents-list {
+  margin-top: 16px;
+  text-align: left;
+}
+
+.recents-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 0 0 6px 0;
+  padding: 0 4px;
+}
+
+.recent-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  gap: 2px;
+}
+
+.recent-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.recent-path {
+  font-size: 10px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+}
+
 .file-explorer-footer {
   flex-shrink: 0;
   padding: 8px 12px;

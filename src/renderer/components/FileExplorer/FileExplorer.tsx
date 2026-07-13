@@ -58,7 +58,7 @@ interface FileExplorerProps {
 }
 
 export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSettingsClick }) => {
-  const { workspacePath, tree, pickWorkspace, openFile, refreshTree } = useWorkspace();
+  const { workspacePath, recentWorkspaces, tree, pickWorkspace, openWorkspace, openFile, refreshTree } = useWorkspace();
   const { loggedIn, username, logout } = useAuth();
 
   return (
@@ -88,14 +88,26 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({ onLoginClick, onSett
           {!workspacePath ? (
             <div className="empty-state">
               <p>No folder open</p>
-              <p className="hint">Open a folder to get started</p>
-              <button
-                type="button"
-                className="open-folder-button"
-                onClick={pickWorkspace}
-              >
+              <button type="button" className="open-folder-button" onClick={pickWorkspace}>
                 Open folder
               </button>
+              {recentWorkspaces.length > 0 && (
+                <div className="recents-list">
+                  <p className="recents-label">Recent</p>
+                  {recentWorkspaces.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className="recent-item"
+                      title={r}
+                      onClick={() => openWorkspace(r)}
+                    >
+                      {r.replace(/\\/g, '/').split('/').pop()}
+                      <span className="recent-path">{r}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : tree.length === 0 ? (
             <div className="empty-state">

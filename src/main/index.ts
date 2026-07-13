@@ -16,6 +16,7 @@ import { SettingsService } from './services/SettingsService.js';
 import { GitService } from './services/GitService.js';
 import { StarWizardService } from './services/StarWizardService.js';
 import { DiagnosticsService } from './services/DiagnosticsService.js';
+import { LspService } from './services/LspService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -40,6 +41,7 @@ let settingsService: SettingsService;
 let gitService: GitService;
 let starWizardService: StarWizardService;
 let diagnosticsService: DiagnosticsService;
+let lspService: LspService;
 const pendingConfirmations = new Map<string, (approved: boolean) => void>();
 
 // Default terminal session IDs created at startup (before renderer asks for them)
@@ -93,6 +95,14 @@ app.whenReady().then(async () => {
   gitService = new GitService();
   starWizardService = new StarWizardService();
   diagnosticsService = new DiagnosticsService();
+  lspService = new LspService();
+
+  // Forward LSP publishDiagnostics notifications to the renderer
+  lspService.on('notification', (method: string, params: any) => {
+    if (method === 'textDocument/publishDiagnostics' && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('lsp:diagnostics', params);
+    }
+  });
 
   const stored = await loadStoredAuth();
   if (stored?.token) {
@@ -229,14 +239,20 @@ ipcMain.handle('agents:invoke', async (_, agentId: string, task: string, context
 // ── File System ───────────────────────────────────────────────────────────────
 
 ipcMain.handle('fs:pick-workspace', async () => {
-  try { return await fileSystemService.pickWorkspace(); }
-  catch { return null; }
+  try {
+    const p = await fileSystemService.pickWorkspace();
+    if (p) { settingsService.pushRecent(p); lspService.start(p); }
+    return p;
+  } catch { return null; }
 });
 ipcMain.handle('fs:get-workspace-path', () => fileSystemService.getWorkspacePath());
 ipcMain.handle('fs:set-workspace-path', (_, dir: string) => {
   fileSystemService.setWorkspacePath(dir);
+  settingsService.pushRecent(dir);
+  lspService.start(dir);
   return dir;
 });
+ipcMain.handle('fs:get-recents', () => settingsService.getRecents());
 ipcMain.handle('fs:list-tree', async (_, dir?: string) => {
   try { return await fileSystemService.listTree(dir); }
   catch { return []; }
@@ -574,3 +590,25 @@ ipcMain.handle('diagnostics:run-eslint', async () => {
   if (!dir) return { diagnostics: [], error: 'No workspace open' };
   return diagnosticsService.runEslint(dir);
 });
+
+// ── LSP ───────────────────────────────────────────────────────────────────────
+
+ipcMain.handle('lsp:start', (_, workspaceRoot: string) => {
+  lspService.start(workspaceRoot);
+});
+ipcMain.handle('lsp:stop', () => lspService.stop());
+ipcMain.handle('lsp:open-document', (_, uri: string, languageId: string, text: string) => {
+  lspService.openDocument(uri, languageId, text);
+});
+ipcMain.handle('lsp:change-document', (_, uri: string, text: string, version: number) => {
+  lspService.changeDocument(uri, text, version);
+});
+ipcMain.handle('lsp:close-document', (_, uri: string) => {
+  lspService.closeDocument(uri);
+});
+ipcMain.handle('lsp:completion', (_, uri: string, line: number, character: number) =>
+  lspService.getCompletions(uri, line, character));
+ipcMain.handle('lsp:hover', (_, uri: string, line: number, character: number) =>
+  lspService.getHover(uri, line, character));
+ipcMain.handle('lsp:definition', (_, uri: string, line: number, character: number) =>
+  lspService.getDefinition(uri, line, character));

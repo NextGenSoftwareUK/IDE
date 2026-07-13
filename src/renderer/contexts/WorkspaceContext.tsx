@@ -9,6 +9,7 @@ export interface TreeNode {
 
 interface WorkspaceContextValue {
   workspacePath: string | null;
+  recentWorkspaces: string[];
   tree: TreeNode[];
   openFilePath: string | null;
   fileContent: string;
@@ -26,7 +27,21 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
+
+  // Load recents and restore last workspace on mount
+  useEffect(() => {
+    window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
+    // Restore workspace path if the main process already has one
+    window.electronAPI?.getWorkspacePath?.().then((p: string | null) => {
+      if (p) {
+        setWorkspacePath(p);
+        window.electronAPI?.listTree?.().then((list: any[]) => setTree(list ?? []));
+        window.electronAPI?.lspStart?.(p);
+      }
+    });
+  }, []);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [openFilePath, setOpenFilePath] = useState<string | null>(null);
   const [fileContent, setFileContentState] = useState<string>('');
@@ -40,6 +55,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setOpenFilePath(null);
     setFileContentState('');
     setDirty(false);
+    window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
   }, []);
 
   const pickWorkspace = useCallback(async () => {
@@ -94,6 +110,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
   const value: WorkspaceContextValue = {
     workspacePath,
+    recentWorkspaces,
     tree,
     openFilePath,
     fileContent,

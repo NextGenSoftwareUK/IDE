@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'oasis-ide-settings.json');
+const RECENTS_FILE = path.join(app.getPath('userData'), 'oasis-ide-recents.json');
+const MAX_RECENTS = 8;
 
 const DEFAULTS: Record<string, string> = {
   OASIS_API_URL: process.env.OASIS_API_URL || 'http://localhost:7777',
@@ -40,7 +42,19 @@ export class SettingsService {
     this.cache = { ...DEFAULTS, ...settings };
     fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
     fs.writeFileSync(SETTINGS_FILE, JSON.stringify(this.cache, null, 2), 'utf8');
-    // Propagate to process.env so clients that read env at startup also benefit
     for (const [k, v] of Object.entries(this.cache)) process.env[k] = v;
+  }
+
+  getRecents(): string[] {
+    try {
+      return JSON.parse(fs.readFileSync(RECENTS_FILE, 'utf8')) as string[];
+    } catch {
+      return [];
+    }
+  }
+
+  pushRecent(dir: string): void {
+    const recents = [dir, ...this.getRecents().filter((r) => r !== dir)].slice(0, MAX_RECENTS);
+    fs.writeFileSync(RECENTS_FILE, JSON.stringify(recents), 'utf8');
   }
 }

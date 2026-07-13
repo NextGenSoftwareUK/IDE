@@ -30,6 +30,7 @@ import { AgentProvider } from './contexts/AgentContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { LoginModal } from './components/Auth/LoginModal';
+import { CommandPalette } from './components/CommandPalette/CommandPalette';
 
 export interface OASISElectronAPI {
   // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ export interface OASISElectronAPI {
   readFile: (path: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
   searchFiles: (query: string, dir?: string, extensions?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
+  getRecents: () => Promise<string[]>;
   onWorkspaceChanged: (cb: () => void) => () => void;
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -167,6 +169,17 @@ export interface OASISElectronAPI {
   diagnosticsRunTsc: () => Promise<{ diagnostics: DiagnosticEntry[]; error?: string }>;
   diagnosticsRunEslint: () => Promise<{ diagnostics: DiagnosticEntry[]; error?: string }>;
 
+  // ── LSP ───────────────────────────────────────────────────────────────────────
+  lspStart: (workspaceRoot: string) => Promise<void>;
+  lspStop: () => Promise<void>;
+  lspOpenDocument: (uri: string, languageId: string, text: string) => Promise<void>;
+  lspChangeDocument: (uri: string, text: string, version: number) => Promise<void>;
+  lspCloseDocument: (uri: string) => Promise<void>;
+  lspCompletion: (uri: string, line: number, character: number) => Promise<any>;
+  lspHover: (uri: string, line: number, character: number) => Promise<any>;
+  lspDefinition: (uri: string, line: number, character: number) => Promise<any>;
+  onLspDiagnostics: (cb: (params: { uri: string; diagnostics: any[] }) => void) => () => void;
+
   // ── Window ────────────────────────────────────────────────────────────────────
   minimize: () => Promise<void>;
   maximize: () => Promise<void>;
@@ -182,6 +195,18 @@ declare global {
 function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        setShowPalette((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   return (
     <ThemeProvider>
@@ -215,6 +240,9 @@ function App() {
               )}
               {showSettings && (
                 <SettingsModal onClose={() => setShowSettings(false)} />
+              )}
+              {showPalette && (
+                <CommandPalette onClose={() => setShowPalette(false)} />
               )}
             </WorkspaceProvider>
           </AuthProvider>

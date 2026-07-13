@@ -173,6 +173,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── File search ───────────────────────────────────────────────────────────
   searchFiles: (query: string, dir?: string, extensions?: string[]) =>
     ipcRenderer.invoke('fs:search-files', query, dir, extensions),
+  getRecents: () => ipcRenderer.invoke('fs:get-recents'),
 
   // ── Settings ──────────────────────────────────────────────────────────────
   settingsGet: () => ipcRenderer.invoke('settings:get'),
@@ -194,6 +195,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Diagnostics ───────────────────────────────────────────────────────────
   diagnosticsRunTsc: () => ipcRenderer.invoke('diagnostics:run-tsc'),
   diagnosticsRunEslint: () => ipcRenderer.invoke('diagnostics:run-eslint'),
+
+  // ── LSP ───────────────────────────────────────────────────────────────────
+  lspStart: (workspaceRoot: string) => ipcRenderer.invoke('lsp:start', workspaceRoot),
+  lspStop: () => ipcRenderer.invoke('lsp:stop'),
+  lspOpenDocument: (uri: string, languageId: string, text: string) =>
+    ipcRenderer.invoke('lsp:open-document', uri, languageId, text),
+  lspChangeDocument: (uri: string, text: string, version: number) =>
+    ipcRenderer.invoke('lsp:change-document', uri, text, version),
+  lspCloseDocument: (uri: string) => ipcRenderer.invoke('lsp:close-document', uri),
+  lspCompletion: (uri: string, line: number, character: number) =>
+    ipcRenderer.invoke('lsp:completion', uri, line, character),
+  lspHover: (uri: string, line: number, character: number) =>
+    ipcRenderer.invoke('lsp:hover', uri, line, character),
+  lspDefinition: (uri: string, line: number, character: number) =>
+    ipcRenderer.invoke('lsp:definition', uri, line, character),
+  onLspDiagnostics: (cb: (params: any) => void) => {
+    const h = (_: unknown, p: any) => cb(p);
+    ipcRenderer.on('lsp:diagnostics', h);
+    return () => ipcRenderer.removeListener('lsp:diagnostics', h);
+  },
 
   // ── Window ────────────────────────────────────────────────────────────────
   minimize: () => ipcRenderer.invoke('window:minimize'),
