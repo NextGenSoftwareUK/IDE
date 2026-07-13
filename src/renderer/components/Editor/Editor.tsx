@@ -123,13 +123,35 @@ function disposeModel(filePath: string): void {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export const Editor: React.FC = () => {
+interface EditorProps {
+  paneId?: string;
+  /** Right-pane override: show this tab path instead of the workspace active tab */
+  overrideTabPath?: string;
+  /** Called when the right pane switches tabs */
+  onTabChange?: (path: string) => void;
+  /** Available tabs to show in the right pane header (when overrideTabPath is set) */
+  availableTabs?: import('../../contexts/WorkspaceContext').EditorTab[];
+  className?: string;
+}
+
+export const Editor: React.FC<EditorProps> = ({
+  paneId = 'main',
+  overrideTabPath,
+  onTabChange,
+  availableTabs: overrideTabs,
+  className,
+}) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const {
-    tabs, activeTabPath, openFilePath, fileContent, dirty,
+    tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile,
   } = useWorkspace();
+
+  // In right-pane mode, use override values; otherwise use context
+  const isRightPane = overrideTabPath !== undefined;
+  const tabs = overrideTabs ?? ctxTabs;
+  const activeTabPath = isRightPane ? overrideTabPath : ctxActiveTabPath;
 
   const docVersions = useRef<Map<string, number>>(new Map());
 
@@ -281,6 +303,7 @@ export const Editor: React.FC = () => {
     if (!editor) return;
 
     const disposable = editor.onDidChangeModelContent(() => {
+      if (isRightPane) return; // right pane is read-view; edits go nowhere
       const model = editor.getModel();
       if (!model) return;
       const text = model.getValue();
@@ -312,13 +335,13 @@ export const Editor: React.FC = () => {
   const handleTabClose = useCallback(
     (e: React.MouseEvent, path: string) => {
       e.stopPropagation();
-      closeTab(path);
+      if (!isRightPane) closeTab(path);
     },
-    [closeTab],
+    [closeTab, isRightPane],
   );
 
   return (
-    <div className="editor-container">
+    <div className={`editor-container${className ? ' ' + className : ''}`}>
       {/* ── Tab bar ── */}
       <div className="editor-tabs-bar">
         {tabs.length === 0 && (
@@ -333,7 +356,7 @@ export const Editor: React.FC = () => {
               key={tab.path}
               className={`editor-tab-item ${isActive ? 'active' : ''}`}
               title={tab.path}
-              onClick={() => setActiveTab(tab.path)}
+              onClick={() => isRightPane ? onTabChange?.(tab.path) : setActiveTab(tab.path)}
             >
               <span className="editor-tab-name">{name}</span>
               {isDirty && <span className="editor-tab-dirty" title="Unsaved">●</span>}

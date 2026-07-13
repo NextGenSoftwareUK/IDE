@@ -1,18 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import './SettingsPanel.css';
 
-const FIELDS: Array<{ key: string; label: string; placeholder: string; secret?: boolean }> = [
-  { key: 'OASIS_API_URL',       label: 'Web4 (ONODE) URL',    placeholder: 'http://localhost:7777' },
-  { key: 'OASIS_WEB6_URL',      label: 'Web6 AI URL',          placeholder: 'http://localhost:64596' },
-  { key: 'OASIS_WEB6_API_KEY',  label: 'Web6 API Key',         placeholder: '', secret: true },
-  { key: 'OASIS_WEB7_URL',      label: 'Web7 Consciousness URL', placeholder: 'http://localhost:62798' },
-  { key: 'OASIS_WEB8_URL',      label: 'Web8 Mesh URL',         placeholder: 'http://localhost:65332' },
-  { key: 'OASIS_WEB9_URL',      label: 'Web9 Singularity URL',  placeholder: 'http://localhost:65342' },
-  { key: 'OASIS_WEB10_URL',     label: 'Web10 Source URL',      placeholder: 'http://localhost:57483' },
-  { key: 'OASIS_MCP_SERVER_PATH', label: 'MCP Server Path',     placeholder: 'auto-detected' },
-  { key: 'OASIS_STAR_CLI_PATH', label: 'STAR CLI Path',          placeholder: 'auto-detected' },
-  { key: 'SERV_API_KEY',        label: 'OpenServ API Key',       placeholder: '', secret: true },
-  { key: 'OPENAI_API_KEY',      label: 'OpenAI API Key',         placeholder: '', secret: true },
+const URL_FIELDS: Array<{ key: string; label: string; placeholder: string; secret?: boolean }> = [
+  { key: 'OASIS_API_URL',         label: 'Web4 (ONODE) URL',      placeholder: 'http://localhost:7777' },
+  { key: 'OASIS_WEB6_URL',        label: 'Web6 AI URL',            placeholder: 'http://localhost:64596' },
+  { key: 'OASIS_WEB6_API_KEY',    label: 'Web6 API Key',           placeholder: '', secret: true },
+  { key: 'OASIS_WEB7_URL',        label: 'Web7 Consciousness URL', placeholder: 'http://localhost:62798' },
+  { key: 'OASIS_WEB8_URL',        label: 'Web8 Mesh URL',          placeholder: 'http://localhost:65332' },
+  { key: 'OASIS_WEB9_URL',        label: 'Web9 Singularity URL',   placeholder: 'http://localhost:65342' },
+  { key: 'OASIS_WEB10_URL',       label: 'Web10 Source URL',       placeholder: 'http://localhost:57483' },
+  { key: 'OASIS_MCP_SERVER_PATH', label: 'MCP Server Path',        placeholder: 'auto-detected' },
+  { key: 'OASIS_STAR_CLI_PATH',   label: 'STAR CLI Path',          placeholder: 'auto-detected' },
+  { key: 'SERV_API_KEY',          label: 'OpenServ API Key',       placeholder: '', secret: true },
+  { key: 'OPENAI_API_KEY',        label: 'OpenAI API Key',         placeholder: '', secret: true },
 ];
 
 const api = () => window.electronAPI;
@@ -39,6 +39,9 @@ export const SettingsPanel: React.FC = () => {
 
   if (loading) return <div className="settings-panel panel"><div className="settings-loading">Loading…</div></div>;
 
+  const autoSave = values['EDITOR_AUTO_SAVE'] ?? 'off';
+  const autoSaveDelay = values['EDITOR_AUTO_SAVE_DELAY'] ?? '1500';
+
   return (
     <div className="settings-panel panel">
       <div className="panel-header">
@@ -52,10 +55,42 @@ export const SettingsPanel: React.FC = () => {
         </button>
       </div>
       <div className="settings-content">
+
+        <p className="settings-section-label">Editor</p>
+
+        <div className="settings-field">
+          <label className="settings-label">Auto Save</label>
+          <select
+            className="settings-input"
+            value={autoSave}
+            onChange={(e) => handleChange('EDITOR_AUTO_SAVE', e.target.value)}
+          >
+            <option value="off">Off</option>
+            <option value="afterDelay">After delay</option>
+          </select>
+        </div>
+
+        {autoSave === 'afterDelay' && (
+          <div className="settings-field">
+            <label className="settings-label">Auto Save Delay (ms)</label>
+            <input
+              type="number"
+              className="settings-input"
+              value={autoSaveDelay}
+              min={500}
+              max={30000}
+              step={500}
+              onChange={(e) => handleChange('EDITOR_AUTO_SAVE_DELAY', e.target.value)}
+            />
+          </div>
+        )}
+
+        <p className="settings-section-label">OASIS Services</p>
         <p className="settings-hint">
           Changes apply immediately to running layer clients. Restart the IDE after changing MCP or STAR paths.
         </p>
-        {FIELDS.map(({ key, label, placeholder, secret }) => (
+
+        {URL_FIELDS.map(({ key, label, placeholder, secret }) => (
           <div key={key} className="settings-field">
             <label className="settings-label">{label}</label>
             <input

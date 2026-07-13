@@ -34,6 +34,16 @@
   gap: 10px;
 }
 
+.settings-section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
 .settings-hint {
   font-size: 11px;
   color: var(--text-secondary, #6a80a8);

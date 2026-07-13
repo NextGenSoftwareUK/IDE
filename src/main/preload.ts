@@ -174,6 +174,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchFiles: (query: string, dir?: string, extensions?: string[]) =>
     ipcRenderer.invoke('fs:search-files', query, dir, extensions),
   getRecents: () => ipcRenderer.invoke('fs:get-recents'),
+  createFile: (filePath: string) => ipcRenderer.invoke('fs:create-file', filePath),
+  createFolder: (folderPath: string) => ipcRenderer.invoke('fs:create-folder', folderPath),
+  renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('fs:rename', oldPath, newPath),
+  deleteFile: (filePath: string) => ipcRenderer.invoke('fs:delete', filePath),
 
   // ── Settings ──────────────────────────────────────────────────────────────
   settingsGet: () => ipcRenderer.invoke('settings:get'),

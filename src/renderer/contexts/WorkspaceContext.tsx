@@ -45,6 +45,24 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [tabs, setTabs] = useState<EditorTab[]>([]);
   const [activeTabPath, setActiveTabPathState] = useState<string | null>(null);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveSettingsRef = useRef<{ mode: string; delay: number }>({ mode: 'off', delay: 1500 });
+
+  // Load auto-save settings and keep them in a ref (avoids re-creating setFileContent)
+  useEffect(() => {
+    const load = () => {
+      window.electronAPI?.settingsGet?.().then((s) => {
+        autoSaveSettingsRef.current = {
+          mode: s?.EDITOR_AUTO_SAVE ?? 'off',
+          delay: parseInt(s?.EDITOR_AUTO_SAVE_DELAY ?? '1500', 10) || 1500,
+        };
+      });
+    };
+    load();
+    // Reload after settings save (crude but effective)
+    const id = setInterval(load, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   // Load recents and restore last workspace on mount
   useEffect(() => {
@@ -144,6 +162,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setTabs((prev) =>
       prev.map((t) => t.path === activeTabPath ? { ...t, content } : t)
     );
+    // Auto-save debounce
+    if (autoSaveSettingsRef.current.mode === 'afterDelay' && activeTabPath) {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      const path = activeTabPath;
+      autoSaveTimerRef.current = setTimeout(() => {
+        setTabs((prev) => {
+          const tab = prev.find((t) => t.path === path);
+          if (!tab || tab.content === tab.savedContent) return prev;
+          window.electronAPI?.writeFile?.(path, tab.content).then(() => {
+            setTabs((p) => p.map((t) => t.path === path ? { ...t, savedContent: t.content } : t));
+          });
+          return prev;
+        });
+      }, autoSaveSettingsRef.current.delay);
+    }
   }, [activeTabPath]);
 
   // Legacy compat — mark a tab clean

@@ -7,6 +7,8 @@ const RECENTS_FILE = path.join(app.getPath('userData'), 'oasis-ide-recents.json'
 const MAX_RECENTS = 8;
 
 const DEFAULTS: Record<string, string> = {
+  EDITOR_AUTO_SAVE: 'off', // 'off' | 'afterDelay'
+  EDITOR_AUTO_SAVE_DELAY: '1500',
   OASIS_API_URL: process.env.OASIS_API_URL || 'http://localhost:7777',
   OASIS_WEB6_URL: process.env.OASIS_WEB6_URL || 'http://localhost:64596',
   OASIS_WEB6_API_KEY: process.env.OASIS_WEB6_API_KEY || '',

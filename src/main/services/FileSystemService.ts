@@ -118,6 +118,28 @@ export class FileSystemService {
     await fs.writeFile(filePath, content, 'utf-8');
   }
 
+  async createFile(filePath: string): Promise<void> {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, '', 'utf-8');
+  }
+
+  async createFolder(folderPath: string): Promise<void> {
+    await fs.mkdir(folderPath, { recursive: true });
+  }
+
+  async renameFile(oldPath: string, newPath: string): Promise<void> {
+    await fs.rename(oldPath, newPath);
+  }
+
+  async deleteFile(filePath: string): Promise<void> {
+    const stat = await fs.stat(filePath);
+    if (stat.isDirectory()) {
+      await fs.rm(filePath, { recursive: true, force: true });
+    } else {
+      await fs.unlink(filePath);
+    }
+  }
+
   async searchFiles(
     query: string,
     dir: string,

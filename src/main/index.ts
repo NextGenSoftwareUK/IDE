@@ -253,6 +253,10 @@ ipcMain.handle('fs:set-workspace-path', (_, dir: string) => {
   return dir;
 });
 ipcMain.handle('fs:get-recents', () => settingsService.getRecents());
+ipcMain.handle('fs:create-file', async (_, filePath: string) => fileSystemService.createFile(filePath));
+ipcMain.handle('fs:create-folder', async (_, folderPath: string) => fileSystemService.createFolder(folderPath));
+ipcMain.handle('fs:rename', async (_, oldPath: string, newPath: string) => fileSystemService.renameFile(oldPath, newPath));
+ipcMain.handle('fs:delete', async (_, filePath: string) => fileSystemService.deleteFile(filePath));
 ipcMain.handle('fs:list-tree', async (_, dir?: string) => {
   try { return await fileSystemService.listTree(dir); }
   catch { return []; }

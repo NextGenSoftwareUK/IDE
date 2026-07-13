@@ -14,7 +14,7 @@ import { SidebarHost } from './components/Layout/SidebarHost';
 import { StartupWarning } from './components/Layout/StartupWarning';
 import { ChatInterface } from './components/Chat/ChatInterface';
 import { FileExplorer } from './components/FileExplorer/FileExplorer';
-import { Editor } from './components/Editor/Editor';
+import { SplitEditor } from './components/Editor/SplitEditor';
 import { OASISToolsPanel } from './components/OASISTools/OASISToolsPanel';
 import { OASISNetworkPanel } from './components/OASISNetwork/OASISNetworkPanel';
 import { AgentPanel } from './components/Agents/AgentPanel';
@@ -58,6 +58,10 @@ export interface OASISElectronAPI {
   writeFile: (path: string, content: string) => Promise<void>;
   searchFiles: (query: string, dir?: string, extensions?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
   getRecents: () => Promise<string[]>;
+  createFile: (filePath: string) => Promise<void>;
+  createFolder: (folderPath: string) => Promise<void>;
+  renameFile: (oldPath: string, newPath: string) => Promise<void>;
+  deleteFile: (filePath: string) => Promise<void>;
   onWorkspaceChanged: (cb: () => void) => () => void;
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -224,7 +228,7 @@ function App() {
                   git={<GitPanel />}
                   star={<StarWizardPanel />}
                 />
-                <Editor />
+                <SplitEditor />
                 <RightPanelStack>
                   <ChatInterface />
                   <InboxPanel />
