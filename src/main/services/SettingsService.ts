@@ -59,4 +59,18 @@ export class SettingsService {
     const recents = [dir, ...this.getRecents().filter((r) => r !== dir)].slice(0, MAX_RECENTS);
     fs.writeFileSync(RECENTS_FILE, JSON.stringify(recents), 'utf8');
   }
+
+  private get tabsFile(): string {
+    return path.join(app.getPath('userData'), 'oasis-ide-tabs.json');
+  }
+
+  getPersistedTabs(): { workspacePath: string; tabs: string[]; activeTab: string | null } | null {
+    try {
+      return JSON.parse(fs.readFileSync(this.tabsFile, 'utf8'));
+    } catch { return null; }
+  }
+
+  savePersistedTabs(workspacePath: string, tabs: string[], activeTab: string | null): void {
+    fs.writeFileSync(this.tabsFile, JSON.stringify({ workspacePath, tabs, activeTab }), 'utf8');
+  }
 }

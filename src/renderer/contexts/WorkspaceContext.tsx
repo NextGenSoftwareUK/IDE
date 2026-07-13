@@ -66,14 +66,45 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
-  // Load recents and restore last workspace on mount
+  // Load recents, restore workspace + tabs on mount
   useEffect(() => {
     window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
-    window.electronAPI?.getWorkspacePath?.().then((p: string | null) => {
-      if (p) {
-        setWorkspacePath(p);
-        window.electronAPI?.listTree?.().then((list: any[]) => setTree(list ?? []));
-        window.electronAPI?.lspStart?.(p);
+
+    // Try to restore persisted tabs first; fall back to bare workspace path
+    window.electronAPI?.tabsGet?.().then(async (saved) => {
+      const wsPath = saved?.workspacePath ?? null;
+      if (!wsPath) {
+        // No persisted tabs — just restore workspace path if main already has one
+        const p = await window.electronAPI?.getWorkspacePath?.();
+        if (p) {
+          setWorkspacePath(p);
+          window.electronAPI?.listTree?.().then((list: any[]) => setTree(list ?? []));
+          window.electronAPI?.lspStart?.(p);
+        }
+        return;
+      }
+      // Restore workspace
+      await window.electronAPI?.setWorkspacePath?.(wsPath);
+      setWorkspacePath(wsPath);
+      const list = await window.electronAPI?.listTree?.() ?? [];
+      setTree(list);
+      window.electronAPI?.lspStart?.(wsPath);
+
+      // Restore tabs
+      const paths = saved?.tabs ?? [];
+      const restored: EditorTab[] = [];
+      for (const p of paths) {
+        try {
+          const content = await window.electronAPI?.readFile?.(p) ?? '';
+          restored.push({ path: p, content, savedContent: content });
+        } catch { /* file may have been deleted */ }
+      }
+      if (restored.length > 0) {
+        setTabs(restored);
+        const active = saved?.activeTab && restored.find((t) => t.path === saved.activeTab)
+          ? saved.activeTab
+          : restored[0].path;
+        setActiveTabPathState(active);
       }
     });
   }, []);
@@ -85,6 +116,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setTree(list);
     setTabs([]);
     setActiveTabPathState(null);
+    window.electronAPI?.tabsSave?.(dir, [], null);
     window.electronAPI?.getRecents?.().then((r) => setRecentWorkspaces(r ?? []));
   }, []);
 
@@ -209,6 +241,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const save = useCallback(async () => {
     if (activeTabPath) await saveTab(activeTabPath);
   }, [activeTabPath, saveTab]);
+
+  // Persist tabs whenever they change
+  useEffect(() => {
+    if (!workspacePath) return;
+    const paths = tabs.map((t) => t.path);
+    window.electronAPI?.tabsSave?.(workspacePath, paths, activeTabPath);
+  }, [tabs, activeTabPath, workspacePath]);
 
   // Derived convenience values for the active tab
   const activeTab = tabs.find((t) => t.path === activeTabPath) ?? null;

@@ -37,7 +37,24 @@ export const GitPanel: React.FC = () => {
   const [commitResult, setCommitResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Branch state
+  const [branches, setBranches] = useState<{ name: string; current: boolean }[]>([]);
+  const [currentBranch, setCurrentBranch] = useState('');
+  const [newBranchName, setNewBranchName] = useState('');
+  const [branchOp, setBranchOp] = useState(false);
+  const [showNewBranch, setShowNewBranch] = useState(false);
+
   const dir = workspacePath;
+
+  const refreshBranches = useCallback(async () => {
+    if (!dir) return;
+    const [b, bl] = await Promise.all([
+      api().gitCurrentBranch?.(dir) ?? Promise.resolve(''),
+      api().gitListBranches?.(dir) ?? Promise.resolve([]),
+    ]);
+    setCurrentBranch(b ?? '');
+    setBranches(bl ?? []);
+  }, [dir]);
 
   const refresh = useCallback(async () => {
     if (!dir) return;
@@ -49,8 +66,9 @@ export const GitPanel: React.FC = () => {
       ]);
       if (statusResult.status === 'fulfilled') setFiles(statusResult.value ?? []);
       if (logResult.status === 'fulfilled') setLog(logResult.value ?? []);
+      await refreshBranches();
     } finally { setLoading(false); }
-  }, [dir]);
+  }, [dir, refreshBranches]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -94,6 +112,30 @@ export const GitPanel: React.FC = () => {
     } finally { setCommitting(false); }
   }, [dir, commitMsg, stagedFiles, refresh]);
 
+  const doCheckout = useCallback(async (branch: string) => {
+    if (!dir || branch === currentBranch) return;
+    setBranchOp(true);
+    try {
+      const r = await api().gitCheckout?.(dir, branch);
+      if (r?.success) { success(`Switched to ${branch}`); await refresh(); }
+      else toastError(r?.error ?? 'Checkout failed');
+    } finally { setBranchOp(false); }
+  }, [dir, currentBranch, refresh]);
+
+  const doCreateBranch = useCallback(async () => {
+    if (!dir || !newBranchName.trim()) return;
+    setBranchOp(true);
+    try {
+      const r = await api().gitCreateBranch?.(dir, newBranchName.trim());
+      if (r?.success) {
+        success(`Created branch ${newBranchName.trim()}`);
+        setNewBranchName('');
+        setShowNewBranch(false);
+        await refresh();
+      } else toastError(r?.error ?? 'Create branch failed');
+    } finally { setBranchOp(false); }
+  }, [dir, newBranchName, refresh]);
+
   if (!dir) {
     return (
       <div className="git-panel panel">
@@ -122,6 +164,48 @@ export const GitPanel: React.FC = () => {
           {loading ? '⟳' : '↺'}
         </button>
       </div>
+
+      {/* Branch bar */}
+      <div className="git-branch-bar">
+        <span className="git-branch-label">Branch:</span>
+        <select
+          className="git-branch-select"
+          value={currentBranch}
+          disabled={branchOp || branches.length === 0}
+          onChange={(e) => doCheckout(e.target.value)}
+        >
+          {branches.length === 0 && currentBranch && (
+            <option value={currentBranch}>{currentBranch}</option>
+          )}
+          {branches.map((b) => (
+            <option key={b.name} value={b.name}>{b.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="git-new-branch-btn"
+          title="New branch"
+          onClick={() => setShowNewBranch((v) => !v)}
+        >+</button>
+      </div>
+      {showNewBranch && (
+        <div className="git-new-branch-row">
+          <input
+            className="git-new-branch-input"
+            placeholder="new-branch-name"
+            value={newBranchName}
+            onChange={(e) => setNewBranchName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') doCreateBranch(); if (e.key === 'Escape') setShowNewBranch(false); }}
+            autoFocus
+          />
+          <button
+            type="button"
+            className="git-new-branch-create-btn"
+            disabled={branchOp || !newBranchName.trim()}
+            onClick={doCreateBranch}
+          >Create</button>
+        </div>
+      )}
 
       {view === 'changes' && (
         <div className="git-changes-view">

@@ -33,6 +33,8 @@ import { LoginModal } from './components/Auth/LoginModal';
 import { CommandPalette } from './components/CommandPalette/CommandPalette';
 import { ToastProvider } from './contexts/ToastContext';
 import { ShortcutsModal } from './components/Shortcuts/ShortcutsModal';
+import { StatusBarProvider, useStatusBar } from './contexts/StatusBarContext';
+import { StatusBar } from './components/StatusBar/StatusBar';
 
 export interface OASISElectronAPI {
   // ── MCP ──────────────────────────────────────────────────────────────────────
@@ -166,6 +168,12 @@ export interface OASISElectronAPI {
   gitLog: (dir: string, limit?: number) => Promise<Array<{ hash: string; message: string; author: string; date: string }>>;
   gitCommit: (dir: string, message: string, files: string[]) => Promise<{ success: boolean; error?: string }>;
   gitInit: (dir: string) => Promise<{ success: boolean; error?: string }>;
+  gitCurrentBranch: (dir: string) => Promise<string>;
+  gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
+  gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
+  gitCreateBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
+  tabsGet: () => Promise<{ workspacePath: string; tabs: string[]; activeTab: string | null } | null>;
+  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) => Promise<void>;
 
   // ── STAR ODK wizard ───────────────────────────────────────────────────────────
   starNewApp: (name: string, templateType: string, outputDir: string) => Promise<{ success: boolean; path?: string; output?: string; error?: string }>;
@@ -198,7 +206,8 @@ declare global {
   }
 }
 
-function App() {
+function AppInner() {
+  const { cursorLine, cursorCol, lspReady } = useStatusBar();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -221,49 +230,52 @@ function App() {
   }, []);
 
   return (
+    <WorkspaceProvider>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+        <Layout>
+          <SidebarHost
+            explorer={<FileExplorer
+              onLoginClick={() => setShowLoginModal(true)}
+              onSettingsClick={() => setShowSettings(true)}
+            />}
+            search={<SearchPanel />}
+            git={<GitPanel />}
+            star={<StarWizardPanel />}
+          />
+          <SplitEditor />
+          <RightPanelStack>
+            <ChatInterface />
+            <InboxPanel />
+            <OASISToolsPanel />
+            <OASISNetworkPanel />
+          </RightPanelStack>
+          <BottomPanel />
+          <AgentPanel />
+        </Layout>
+        <StatusBar cursorLine={cursorLine} cursorCol={cursorCol} lspReady={lspReady} />
+      </div>
+      <StartupWarning />
+      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showPalette && <CommandPalette onClose={() => setShowPalette(false)} />}
+      {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
+    </WorkspaceProvider>
+  );
+}
+
+function App() {
+  return (
     <ThemeProvider>
       <ToastProvider>
-      <MCPProvider>
-        <AgentProvider>
-          <AuthProvider>
-            <WorkspaceProvider>
-              <Layout>
-                <SidebarHost
-                  explorer={<FileExplorer
-                    onLoginClick={() => setShowLoginModal(true)}
-                    onSettingsClick={() => setShowSettings(true)}
-                  />}
-                  search={<SearchPanel />}
-                  git={<GitPanel />}
-                  star={<StarWizardPanel />}
-                />
-                <SplitEditor />
-                <RightPanelStack>
-                  <ChatInterface />
-                  <InboxPanel />
-                  <OASISToolsPanel />
-                  <OASISNetworkPanel />
-                </RightPanelStack>
-                <BottomPanel />
-                <AgentPanel />
-              </Layout>
-              <StartupWarning />
-              {showLoginModal && (
-                <LoginModal onClose={() => setShowLoginModal(false)} />
-              )}
-              {showSettings && (
-                <SettingsModal onClose={() => setShowSettings(false)} />
-              )}
-              {showPalette && (
-                <CommandPalette onClose={() => setShowPalette(false)} />
-              )}
-              {showShortcuts && (
-                <ShortcutsModal onClose={() => setShowShortcuts(false)} />
-              )}
-            </WorkspaceProvider>
-          </AuthProvider>
-        </AgentProvider>
-      </MCPProvider>
+        <MCPProvider>
+          <AgentProvider>
+            <AuthProvider>
+              <StatusBarProvider>
+                <AppInner />
+              </StatusBarProvider>
+            </AuthProvider>
+          </AgentProvider>
+        </MCPProvider>
       </ToastProvider>
     </ThemeProvider>
   );

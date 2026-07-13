@@ -190,6 +190,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitCommit: (dir: string, message: string, files: string[]) =>
     ipcRenderer.invoke('git:commit', dir, message, files),
   gitInit: (dir: string) => ipcRenderer.invoke('git:init', dir),
+  gitCurrentBranch: (dir: string) => ipcRenderer.invoke('git:current-branch', dir),
+  gitListBranches: (dir: string) => ipcRenderer.invoke('git:list-branches', dir),
+  gitCheckout: (dir: string, branch: string) => ipcRenderer.invoke('git:checkout', dir, branch),
+  gitCreateBranch: (dir: string, branch: string) => ipcRenderer.invoke('git:create-branch', dir, branch),
+
+  // ── Tab persistence ─────────────────────────────────────────────────────
+  tabsGet: () => ipcRenderer.invoke('tabs:get'),
+  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) =>
+    ipcRenderer.invoke('tabs:save', workspacePath, tabs, activeTab),
 
   // ── STAR ODK wizard ───────────────────────────────────────────────────────
   starGetTemplates: () => ipcRenderer.invoke('star:get-templates'),

@@ -574,6 +574,15 @@ ipcMain.handle('git:log', async (_, dir: string, limit?: number) => gitService.l
 ipcMain.handle('git:commit', async (_, dir: string, message: string, files: string[]) =>
   gitService.commit(dir, message, files));
 ipcMain.handle('git:init', async (_, dir: string) => gitService.init(dir));
+ipcMain.handle('git:current-branch', async (_, dir: string) => gitService.currentBranch(dir));
+ipcMain.handle('git:list-branches', async (_, dir: string) => gitService.listBranches(dir));
+ipcMain.handle('git:checkout', async (_, dir: string, branch: string) => gitService.checkoutBranch(dir, branch));
+ipcMain.handle('git:create-branch', async (_, dir: string, branch: string) => gitService.createBranch(dir, branch));
+
+// ── Tab persistence ───────────────────────────────────────────────────────────
+ipcMain.handle('tabs:get', () => settingsService.getPersistedTabs());
+ipcMain.handle('tabs:save', (_, workspacePath: string, tabs: string[], activeTab: string | null) =>
+  settingsService.savePersistedTabs(workspacePath, tabs, activeTab));
 
 // ── STAR ODK wizard ───────────────────────────────────────────────────────────
 

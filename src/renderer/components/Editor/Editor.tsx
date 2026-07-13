@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useStatusBar } from '../../contexts/StatusBarContext';
 import { registerOASISSnippets } from './OASISSnippets';
 import './Editor.css';
 
@@ -148,6 +149,7 @@ export const Editor: React.FC<EditorProps> = ({
     tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile,
   } = useWorkspace();
+  const { setCursor, setLspReady } = useStatusBar();
 
   // In right-pane mode, use override values; otherwise use context
   const isRightPane = overrideTabPath !== undefined;
@@ -255,11 +257,13 @@ export const Editor: React.FC<EditorProps> = ({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { save(); });
   }, [save]);
 
-  // Subscribe to LSP publishDiagnostics → Monaco markers
+  // Subscribe to LSP publishDiagnostics → Monaco markers + signal LSP ready
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.onLspDiagnostics) return;
+    let readySignalled = false;
     return api.onLspDiagnostics((params: { uri: string; diagnostics: any[] }) => {
+      if (!readySignalled && !isRightPane) { readySignalled = true; setLspReady(true); }
       const model = monaco.editor.getModel(monaco.Uri.parse(params.uri));
       if (!model) return;
       const markers: monaco.editor.IMarkerData[] = params.diagnostics.map((d: any) => ({
@@ -332,6 +336,17 @@ export const Editor: React.FC<EditorProps> = ({
 
     return () => disposable.dispose();
   }, [setFileContent, activeTabPath]);
+
+  // Track cursor position for status bar (left pane only)
+  useEffect(() => {
+    if (isRightPane) return;
+    const editor = monacoEditorRef.current;
+    if (!editor) return;
+    const d = editor.onDidChangeCursorPosition((e) => {
+      setCursor(e.position.lineNumber, e.position.column);
+    });
+    return () => d.dispose();
+  }, [isRightPane, setCursor]);
 
   // Dispose models for closed tabs
   useEffect(() => {
