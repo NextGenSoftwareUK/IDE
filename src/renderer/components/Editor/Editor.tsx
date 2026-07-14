@@ -175,6 +175,109 @@ function registerLspProviders() {
       } catch { return null; }
     },
   });
+
+  monaco.languages.registerRenameProvider(['typescript', 'javascript'], {
+    async provideRenameEdits(model, position, newName) {
+      const api = window.electronAPI;
+      if (!api?.lspRename) return { edits: [] };
+      try {
+        const result = await api.lspRename(
+          model.uri.toString(), position.lineNumber - 1, position.column - 1, newName,
+        );
+        if (!result) return { edits: [], rejectReason: 'No rename result' };
+
+        // Convert WorkspaceEdit → Monaco WorkspaceEdit
+        const edits: monaco.languages.IWorkspaceTextEdit[] = [];
+        const lspRangeToMonaco = (r: any): monaco.IRange => ({
+          startLineNumber: r.start.line + 1,
+          startColumn: r.start.character + 1,
+          endLineNumber: r.end.line + 1,
+          endColumn: r.end.character + 1,
+        });
+
+        for (const [uri, fileEdits] of Object.entries(result.changes ?? {})) {
+          for (const e of fileEdits as any[]) {
+            edits.push({ resource: monaco.Uri.parse(uri), versionId: undefined, textEdit: { range: lspRangeToMonaco(e.range), text: e.newText ?? '' } });
+          }
+        }
+        for (const dc of result.documentChanges ?? []) {
+          if (dc.textDocument?.uri && dc.edits) {
+            for (const e of dc.edits) {
+              edits.push({ resource: monaco.Uri.parse(dc.textDocument.uri), versionId: undefined, textEdit: { range: lspRangeToMonaco(e.range), text: e.newText ?? '' } });
+            }
+          }
+        }
+
+        // Also apply to disk for files not open as Monaco models
+        api.lspApplyWorkspaceEdit?.(result).catch(() => {});
+
+        return { edits };
+      } catch (err: any) { return { edits: [], rejectReason: err?.message ?? 'Rename failed' }; }
+    },
+  });
+
+  monaco.languages.registerCodeActionProvider(['typescript', 'javascript'], {
+    async provideCodeActions(model, range, context) {
+      const api = window.electronAPI;
+      if (!api?.lspCodeAction) return { actions: [], dispose: () => {} };
+      try {
+        const lspRange = {
+          start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+          end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+        };
+        const lspContext = {
+          diagnostics: context.markers.map((m) => ({
+            range: {
+              start: { line: m.startLineNumber - 1, character: m.startColumn - 1 },
+              end: { line: m.endLineNumber - 1, character: m.endColumn - 1 },
+            },
+            severity: m.severity === monaco.MarkerSeverity.Error ? 1 :
+                      m.severity === monaco.MarkerSeverity.Warning ? 2 : 3,
+            message: m.message,
+            source: m.source,
+            code: m.code ? String(m.code) : undefined,
+          })),
+          only: undefined,
+        };
+
+        const result = await api.lspCodeAction(model.uri.toString(), lspRange, lspContext);
+
+        const lspRangeToMonaco = (r: any): monaco.IRange => ({
+          startLineNumber: r.start.line + 1, startColumn: r.start.character + 1,
+          endLineNumber: r.end.line + 1, endColumn: r.end.character + 1,
+        });
+
+        const convertEdit = (we: any): monaco.languages.WorkspaceEdit => {
+          const edits: monaco.languages.IWorkspaceTextEdit[] = [];
+          for (const [uri, fileEdits] of Object.entries(we?.changes ?? {})) {
+            for (const e of fileEdits as any[]) {
+              edits.push({ resource: monaco.Uri.parse(uri), versionId: undefined, textEdit: { range: lspRangeToMonaco(e.range), text: e.newText ?? '' } });
+            }
+          }
+          for (const dc of we?.documentChanges ?? []) {
+            if (dc.textDocument?.uri && dc.edits) {
+              for (const e of dc.edits) {
+                edits.push({ resource: monaco.Uri.parse(dc.textDocument.uri), versionId: undefined, textEdit: { range: lspRangeToMonaco(e.range), text: e.newText ?? '' } });
+              }
+            }
+          }
+          return { edits };
+        };
+
+        const actions: monaco.languages.CodeAction[] = (result ?? [])
+          .filter((a: any) => a.edit)  // only actions with edits (not command-only)
+          .map((a: any) => ({
+            title: a.title,
+            kind: a.kind,
+            diagnostics: [],
+            edit: convertEdit(a.edit),
+            isPreferred: a.isPreferred ?? false,
+          }));
+
+        return { actions, dispose: () => {} };
+      } catch { return { actions: [], dispose: () => {} }; }
+    },
+  });
 }
 
 // ── Per-tab model cache ───────────────────────────────────────────────────────

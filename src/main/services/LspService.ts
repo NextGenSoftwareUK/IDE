@@ -70,6 +70,8 @@ export class LspService extends EventEmitter {
           definition: {},
           documentSymbol: { hierarchicalDocumentSymbolSupport: true },
           formatting: {},
+          rename: { prepareSupport: false },
+          codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'source'] } } },
         },
         workspace: { workspaceFolders: true, symbol: { symbolKind: { valueSet: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26] } } },
       },
@@ -136,6 +138,29 @@ export class LspService extends EventEmitter {
     if (!this.initialized) return [];
     try {
       const result = await this.request('workspace/symbol', { query });
+      return Array.isArray(result) ? result : [];
+    } catch { return []; }
+  }
+
+  async getRename(uri: string, line: number, character: number, newName: string): Promise<any> {
+    if (!this.initialized) return null;
+    try {
+      return await this.request('textDocument/rename', {
+        textDocument: { uri },
+        position: { line, character },
+        newName,
+      });
+    } catch { return null; }
+  }
+
+  async getCodeActions(uri: string, range: any, context: any): Promise<any[]> {
+    if (!this.initialized) return [];
+    try {
+      const result = await this.request('textDocument/codeAction', {
+        textDocument: { uri },
+        range,
+        context,
+      });
       return Array.isArray(result) ? result : [];
     } catch { return []; }
   }

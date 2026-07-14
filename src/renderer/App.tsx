@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export interface DiagnosticEntry {
   file: string;
@@ -204,6 +204,9 @@ export interface OASISElectronAPI {
   lspDefinition: (uri: string, line: number, character: number) => Promise<any>;
   lspWorkspaceSymbols: (query: string) => Promise<any[]>;
   lspDocumentSymbols: (uri: string) => Promise<any[]>;
+  lspRename: (uri: string, line: number, character: number, newName: string) => Promise<any>;
+  lspCodeAction: (uri: string, range: any, context: any) => Promise<any[]>;
+  lspApplyWorkspaceEdit: (workspaceEdit: any) => Promise<string[]>;
   onLspDiagnostics: (cb: (params: { uri: string; diagnostics: any[] }) => void) => () => void;
 
   // ── Window ────────────────────────────────────────────────────────────────────
@@ -226,11 +229,28 @@ function AppInner() {
   const [showActions, setShowActions] = useState(false);   // Ctrl+Shift+P — command palette
   const [showSymbols, setShowSymbols] = useState(false);  // Ctrl+Shift+O — symbol search
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
+  const chordPendingRef = useRef(false);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable;
+
+      if (e.key === 'Escape' && zenMode) { setZenMode(false); return; }
+
+      if (chordPendingRef.current) {
+        chordPendingRef.current = false;
+        if (e.key.toLowerCase() === 'z') { e.preventDefault(); setZenMode((v) => !v); return; }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        chordPendingRef.current = true;
+        setTimeout(() => { chordPendingRef.current = false; }, 1500);
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setShowActions((v) => !v);
@@ -247,10 +267,28 @@ function AppInner() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [zenMode]);
 
   return (
     <WorkspaceProvider>
+      {zenMode ? (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg-primary, #0a1628)' }}>
+          <SplitEditor />
+          <button
+            type="button"
+            onClick={() => setZenMode(false)}
+            style={{
+              position: 'fixed', bottom: 12, right: 16,
+              background: 'rgba(10,22,40,0.85)', border: '1px solid #1a3a5c',
+              color: '#6a80a8', fontSize: 11, padding: '3px 10px',
+              borderRadius: 4, cursor: 'pointer', zIndex: 9999,
+            }}
+            title="Exit Zen Mode"
+          >
+            Esc — Exit Zen Mode
+          </button>
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         <Layout>
           <SidebarHost
@@ -280,6 +318,7 @@ function AppInner() {
           onIndentChange={(t, s) => window.dispatchEvent(new CustomEvent('oasis-set-indent', { detail: { type: t, size: s } }))}
         />
       </div>
+      )}
       <StartupWarning />
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
@@ -291,6 +330,7 @@ function AppInner() {
           onOpenSymbols={() => setShowSymbols(true)}
           onOpenFiles={() => setShowPalette(true)}
           onOpenShortcuts={() => setShowShortcuts(true)}
+          onToggleZen={() => setZenMode((v) => !v)}
         />
       )}
       {showSymbols && <SymbolSearch onClose={() => setShowSymbols(false)} />}

@@ -242,6 +242,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('lsp:workspace-symbols', query),
   lspDocumentSymbols: (uri: string) =>
     ipcRenderer.invoke('lsp:document-symbols', uri),
+  lspRename: (uri: string, line: number, character: number, newName: string) =>
+    ipcRenderer.invoke('lsp:rename', uri, line, character, newName),
+  lspCodeAction: (uri: string, range: any, context: any) =>
+    ipcRenderer.invoke('lsp:code-action', uri, range, context),
+  lspApplyWorkspaceEdit: (workspaceEdit: any) =>
+    ipcRenderer.invoke('lsp:apply-workspace-edit', workspaceEdit),
   onLspDiagnostics: (cb: (params: any) => void) => {
     const h = (_: unknown, p: any) => cb(p);
     ipcRenderer.on('lsp:diagnostics', h);

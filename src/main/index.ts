@@ -630,6 +630,59 @@ ipcMain.handle('lsp:workspace-symbols', (_, query: string) =>
   lspService.getWorkspaceSymbols(query));
 ipcMain.handle('lsp:document-symbols', (_, uri: string) =>
   lspService.getDocumentSymbols(uri));
+ipcMain.handle('lsp:rename', (_, uri: string, line: number, character: number, newName: string) =>
+  lspService.getRename(uri, line, character, newName));
+ipcMain.handle('lsp:code-action', (_, uri: string, range: any, context: any) =>
+  lspService.getCodeActions(uri, range, context));
+
+// Apply a LSP WorkspaceEdit to disk (for files not open in Monaco)
+ipcMain.handle('lsp:apply-workspace-edit', async (_, workspaceEdit: any) => {
+  const { default: fs } = await import('fs');
+  const { default: nodePath } = await import('path');
+
+  function applyTextEdits(content: string, edits: any[]): string {
+    const sorted = [...edits].sort((a, b) => {
+      const ld = b.range.start.line - a.range.start.line;
+      return ld !== 0 ? ld : b.range.start.character - a.range.start.character;
+    });
+    let result = content;
+    for (const edit of sorted) {
+      const toOffset = (txt: string, line: number, col: number) => {
+        const ls = txt.split('\n');
+        let off = 0;
+        for (let i = 0; i < line && i < ls.length; i++) off += ls[i].length + 1;
+        return off + col;
+      };
+      const start = toOffset(result, edit.range.start.line, edit.range.start.character);
+      const end = toOffset(result, edit.range.end.line, edit.range.end.character);
+      result = result.slice(0, start) + (edit.newText ?? '') + result.slice(end);
+    }
+    return result;
+  }
+
+  const changed: string[] = [];
+  // Handle both `changes` and `documentChanges` formats
+  const changeMap: Record<string, any[]> = {};
+  for (const [uri, edits] of Object.entries(workspaceEdit?.changes ?? {})) {
+    changeMap[uri] = (changeMap[uri] ?? []).concat(edits as any[]);
+  }
+  for (const dc of workspaceEdit?.documentChanges ?? []) {
+    if (dc.textDocument?.uri && dc.edits) {
+      const uri = dc.textDocument.uri;
+      changeMap[uri] = (changeMap[uri] ?? []).concat(dc.edits);
+    }
+  }
+  for (const [uri, edits] of Object.entries(changeMap)) {
+    try {
+      const filePath = uri.replace(/^file:\/\/\/?/, '').replace(/\//g, nodePath.sep);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const updated = applyTextEdits(content, edits);
+      fs.writeFileSync(filePath, updated, 'utf8');
+      changed.push(filePath);
+    } catch {}
+  }
+  return changed;
+});
 
 // ── Git file original ────────────────────────────────────────────────────────
 ipcMain.handle('git:file-original', (_, dir: string, filePath: string) =>

@@ -18,6 +18,7 @@ interface Props {
   onOpenSymbols: () => void;
   onOpenFiles: () => void;
   onOpenShortcuts: () => void;
+  onToggleZen: () => void;
 }
 
 function fuzzyMatch(query: string, target: string): boolean {
@@ -30,7 +31,7 @@ function fuzzyMatch(query: string, target: string): boolean {
 }
 
 export const ActionPalette: React.FC<Props> = ({
-  onClose, onOpenSettings, onOpenSymbols, onOpenFiles, onOpenShortcuts,
+  onClose, onOpenSettings, onOpenSymbols, onOpenFiles, onOpenShortcuts, onToggleZen,
 }) => {
   const { save, workspacePath } = useWorkspace();
   const { success, error: toastError } = useToast();
@@ -66,6 +67,8 @@ export const ActionPalette: React.FC<Props> = ({
       }},
     { id: 'window.reload', label: 'Developer: Reload Window', category: 'Developer',
       run: () => { onClose(); setTimeout(() => window.location.reload(), 100); } },
+    { id: 'view.zen', label: 'View: Toggle Zen Mode', description: 'Collapse all panels, focus the editor', shortcut: 'Ctrl+K Z', category: 'View',
+      run: () => { onClose(); onToggleZen(); } },
     { id: 'window.minimize', label: 'Window: Minimize', category: 'Window',
       run: () => { window.electronAPI?.minimize?.(); onClose(); } },
     { id: 'window.maximize', label: 'Window: Toggle Maximize', category: 'Window',
