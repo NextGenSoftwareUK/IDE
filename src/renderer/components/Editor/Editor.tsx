@@ -356,6 +356,7 @@ export const Editor: React.FC<EditorProps> = ({
   const {
     tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile, workspacePath,
+    navigateBack, navigateForward,
   } = useWorkspace();
   const { setCursor, setLspReady, setEol, setIndent } = useStatusBar();
 
@@ -416,6 +417,10 @@ export const Editor: React.FC<EditorProps> = ({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI, () => {
       editor.getAction('editor.action.formatDocument')?.run();
     });
+
+    // Alt+Left / Alt+Right — tab history navigation
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => navigateBack());
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, () => navigateForward());
 
     // Shift+F12 — find all references via LSP
     editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F12, async () => {
@@ -485,9 +490,15 @@ export const Editor: React.FC<EditorProps> = ({
   useEffect(() => {
     const editor = monacoEditorRef.current;
     if (!editor) return;
-    // Re-add save command so it captures the latest `save` closure
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { save(); });
   }, [save]);
+
+  useEffect(() => {
+    const editor = monacoEditorRef.current;
+    if (!editor) return;
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.LeftArrow, () => navigateBack());
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.RightArrow, () => navigateForward());
+  }, [navigateBack, navigateForward]);
 
   // Subscribe to LSP publishDiagnostics → Monaco markers + signal LSP ready
   useEffect(() => {

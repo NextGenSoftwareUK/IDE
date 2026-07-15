@@ -27,6 +27,7 @@ export class FileSystemService {
   private workspacePath: string | null = null;
   private watcher: FSWatcher | null = null;
   private onChangeCallback: (() => void) | null = null;
+  private onFileChangeCallback: ((filePath: string) => void) | null = null;
 
   getWorkspacePath(): string | null {
     return this.workspacePath;
@@ -54,6 +55,10 @@ export class FileSystemService {
     this.onChangeCallback = cb;
   }
 
+  onFileChange(cb: (filePath: string) => void): void {
+    this.onFileChangeCallback = cb;
+  }
+
   private startWatcher(dir: string): void {
     this.watcher?.close();
     this.watcher = chokidar.watch(dir, {
@@ -63,7 +68,9 @@ export class FileSystemService {
       usePolling: false,
     });
     const notify = () => this.onChangeCallback?.();
-    this.watcher.on('add', notify).on('unlink', notify).on('addDir', notify).on('unlinkDir', notify);
+    this.watcher
+      .on('add', notify).on('unlink', notify).on('addDir', notify).on('unlinkDir', notify)
+      .on('change', (filePath) => this.onFileChangeCallback?.(filePath));
   }
 
   async listTree(dir?: string): Promise<TreeNode[]> {

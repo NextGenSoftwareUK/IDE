@@ -70,6 +70,7 @@ export interface OASISElectronAPI {
   renameFile: (oldPath: string, newPath: string) => Promise<void>;
   deleteFile: (filePath: string) => Promise<void>;
   onWorkspaceChanged: (cb: () => void) => () => void;
+  onFileChanged: (cb: (filePath: string) => void) => () => void;
 
   // ── Auth ──────────────────────────────────────────────────────────────────────
   authLogin: (username: string, password: string) => Promise<{ success: boolean; username?: string; avatarId?: string; error?: string }>;

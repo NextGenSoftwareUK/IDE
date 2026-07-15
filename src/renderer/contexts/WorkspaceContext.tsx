@@ -35,6 +35,9 @@ interface WorkspaceContextValue {
   setDirty: (dirty: boolean) => void;
   save: () => Promise<void>;
   saveTab: (path: string) => Promise<void>;
+  // tab history navigation
+  navigateBack: () => void;
+  navigateForward: () => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -49,6 +52,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveSettingsRef = useRef<{ mode: string; delay: number }>({ mode: 'off', delay: 1500 });
+  // Tab navigation history (ref-based to avoid stale closures)
+  const tabsRef = useRef<EditorTab[]>([]);
+  const tabHistoryRef = useRef<string[]>([]);
+  const historyIdxRef = useRef(-1);
+  const isHistoryNavRef = useRef(false);
 
   // Load auto-save settings and keep them in a ref (avoids re-creating setFileContent)
   useEffect(() => {
@@ -64,6 +72,29 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     // Reload after settings save (crude but effective)
     const id = setInterval(load, 5000);
     return () => clearInterval(id);
+  }, []);
+
+  // Keep tabsRef in sync so callbacks can read current tabs without stale closures
+  useEffect(() => { tabsRef.current = tabs; }, [tabs]);
+
+  // Auto-reload open tabs when an external process changes a file on disk
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onFileChanged) return;
+    return api.onFileChanged((changedPath) => {
+      const tab = tabsRef.current.find((t) => t.path === changedPath);
+      if (!tab) return;
+      // Only silently reload clean tabs; never clobber unsaved edits
+      if (tab.content !== tab.savedContent) return;
+      api.readFile?.(changedPath).then((newContent) => {
+        if (newContent === tab.savedContent) return; // no actual change
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.path === changedPath ? { ...t, content: newContent, savedContent: newContent } : t
+          )
+        );
+      }).catch(() => {});
+    });
   }, []);
 
   // Load recents, restore workspace + tabs on mount
@@ -104,6 +135,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const active = saved?.activeTab && restored.find((t) => t.path === saved.activeTab)
           ? saved.activeTab
           : restored[0].path;
+        tabHistoryRef.current = [active];
+        historyIdxRef.current = 0;
         setActiveTabPathState(active);
       }
     });
@@ -174,13 +207,17 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [tabs]);
 
   const closeTab = useCallback((path: string) => {
+    // Remove closed path from history
+    const cleanHist = tabHistoryRef.current.filter((p) => p !== path);
+    tabHistoryRef.current = cleanHist;
+    historyIdxRef.current = Math.min(historyIdxRef.current, cleanHist.length - 1);
+
     setTabs((prev) => {
       const idx = prev.findIndex((t) => t.path === path);
       if (idx < 0) return prev;
       const next = prev.filter((_, i) => i !== idx);
       setActiveTabPathState((active) => {
         if (active !== path) return active;
-        // Activate adjacent tab
         if (next.length === 0) return null;
         return next[Math.max(0, idx - 1)].path;
       });
@@ -189,7 +226,40 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setActiveTab = useCallback((path: string) => {
+    if (!isHistoryNavRef.current) {
+      const hist = tabHistoryRef.current;
+      const idx = historyIdxRef.current;
+      const trimmed = hist.slice(0, idx + 1);
+      if (trimmed[trimmed.length - 1] !== path) {
+        const next = [...trimmed, path];
+        tabHistoryRef.current = next;
+        historyIdxRef.current = next.length - 1;
+      }
+    }
     setActiveTabPathState(path);
+  }, []);
+
+  const navigateBack = useCallback(() => {
+    const idx = historyIdxRef.current;
+    if (idx <= 0) return;
+    const path = tabHistoryRef.current[idx - 1];
+    if (!path) return;
+    historyIdxRef.current = idx - 1;
+    isHistoryNavRef.current = true;
+    setActiveTabPathState(path);
+    isHistoryNavRef.current = false;
+  }, []);
+
+  const navigateForward = useCallback(() => {
+    const idx = historyIdxRef.current;
+    const hist = tabHistoryRef.current;
+    if (idx >= hist.length - 1) return;
+    const path = hist[idx + 1];
+    if (!path) return;
+    historyIdxRef.current = idx + 1;
+    isHistoryNavRef.current = true;
+    setActiveTabPathState(path);
+    isHistoryNavRef.current = false;
   }, []);
 
   const setFileContent = useCallback((content: string) => {
@@ -274,6 +344,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setDirty,
     save,
     saveTab,
+    navigateBack,
+    navigateForward,
   };
 
   return (

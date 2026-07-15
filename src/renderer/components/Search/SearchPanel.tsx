@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
+import { useToast } from '../../contexts/ToastContext';
 import './SearchPanel.css';
 
 interface SearchResult {
@@ -21,12 +22,20 @@ function shortenPath(filePath: string, root?: string | null): string {
   return filePath;
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export const SearchPanel: React.FC = () => {
   const { workspacePath, openFile } = useWorkspace();
+  const { success, error: toastError } = useToast();
   const [query, setQuery] = useState('');
+  const [replacement, setReplacement] = useState('');
+  const [showReplace, setShowReplace] = useState(false);
   const [extFilter, setExtFilter] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,13 +55,54 @@ export const SearchPanel: React.FC = () => {
     }
   }, [query, extFilter, workspacePath]);
 
+  const runReplaceAll = useCallback(async () => {
+    if (!query.trim() || results.length === 0) return;
+    setReplacing(true);
+    try {
+      const uniqueFiles = [...new Set(results.map((r) => r.file))];
+      let totalCount = 0;
+      let fileCount = 0;
+      const pattern = new RegExp(escapeRegex(query), 'g');
+
+      for (const filePath of uniqueFiles) {
+        try {
+          const content = await api().readFile?.(filePath) ?? '';
+          const matches = content.match(pattern);
+          if (!matches) continue;
+          const updated = content.replace(pattern, replacement);
+          await api().writeFile?.(filePath, updated);
+          totalCount += matches.length;
+          fileCount++;
+        } catch {}
+      }
+
+      success(`Replaced ${totalCount} occurrence${totalCount !== 1 ? 's' : ''} in ${fileCount} file${fileCount !== 1 ? 's' : ''}`);
+      // Re-run search to reflect updated content
+      await runSearch();
+    } catch (e: any) {
+      toastError('Replace failed: ' + (e?.message ?? 'unknown error'));
+    } finally {
+      setReplacing(false);
+    }
+  }, [query, replacement, results, runSearch, success, toastError]);
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') runSearch();
   };
 
   return (
     <div className="search-panel panel">
-      <div className="panel-header">Search</div>
+      <div className="panel-header">
+        <span>Search</span>
+        <button
+          type="button"
+          className="search-toggle-replace"
+          title={showReplace ? 'Hide replace' : 'Show replace'}
+          onClick={() => setShowReplace((v) => !v)}
+        >
+          {showReplace ? '▴' : '▾'} Replace
+        </button>
+      </div>
       <div className="search-bar-area">
         <input
           ref={inputRef}
@@ -65,6 +115,18 @@ export const SearchPanel: React.FC = () => {
           spellCheck={false}
           autoComplete="off"
         />
+        {showReplace && (
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Replace with…"
+            value={replacement}
+            onChange={(e) => setReplacement(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') runReplaceAll(); }}
+            spellCheck={false}
+            autoComplete="off"
+          />
+        )}
         <div className="search-row2">
           <input
             type="text"
@@ -83,6 +145,17 @@ export const SearchPanel: React.FC = () => {
           >
             {loading ? '…' : 'Search'}
           </button>
+          {showReplace && (
+            <button
+              type="button"
+              className="search-btn search-replace-btn"
+              onClick={runReplaceAll}
+              disabled={replacing || !query.trim() || results.length === 0}
+              title={results.length === 0 ? 'Search first' : `Replace all in ${[...new Set(results.map((r) => r.file))].length} files`}
+            >
+              {replacing ? '…' : 'Replace All'}
+            </button>
+          )}
         </div>
       </div>
 

@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('fs:workspace-changed', h);
     return () => ipcRenderer.removeListener('fs:workspace-changed', h);
   },
+  onFileChanged: (cb: (filePath: string) => void) => {
+    const h = (_: unknown, p: string) => cb(p);
+    ipcRenderer.on('fs:file-changed', h);
+    return () => ipcRenderer.removeListener('fs:file-changed', h);
+  },
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   authLogin: (username: string, password: string) => ipcRenderer.invoke('auth:login', username, password),

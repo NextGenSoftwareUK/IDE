@@ -7,7 +7,9 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
     items: [
       { keys: ['Ctrl', 'P'],           desc: 'Go to File — fuzzy-open any workspace file' },
       { keys: ['Ctrl', 'S'],           desc: 'Save file' },
-      { keys: ['Ctrl', 'Shift', 'F'],  desc: 'Search in workspace' },
+      { keys: ['Ctrl', 'Shift', 'F'],  desc: 'Search in workspace (with optional Replace All)' },
+      { keys: ['Alt', '←'],           desc: 'Navigate back in tab history' },
+      { keys: ['Alt', '→'],           desc: 'Navigate forward in tab history' },
     ],
   },
   {

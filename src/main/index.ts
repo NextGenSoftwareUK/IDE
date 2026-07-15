@@ -150,6 +150,13 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Forward individual file change events so open tabs can auto-reload
+  fileSystemService.onFileChange((filePath) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('fs:file-changed', filePath);
+    }
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
