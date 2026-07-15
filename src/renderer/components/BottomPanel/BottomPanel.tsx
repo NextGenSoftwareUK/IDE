@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TerminalPanel } from '../Terminal/TerminalPanel';
 import { ProblemsPanel } from '../Problems/ProblemsPanel';
 import { ScriptsPanel } from '../Scripts/ScriptsPanel';
+import { ReferencesPanel } from '../References/ReferencesPanel';
 import './BottomPanel.css';
 
-type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'debug';
+type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'debug';
 
 interface OutputEntry {
   ts: number;
@@ -17,6 +18,7 @@ const TABS: { id: BottomTabId; label: string }[] = [
   { id: 'scripts', label: 'Scripts' },
   { id: 'output', label: 'Output' },
   { id: 'problems', label: 'Problems' },
+  { id: 'references', label: 'References' },
   { id: 'debug', label: 'Debug Console' },
 ];
 
@@ -29,6 +31,13 @@ export const BottomPanel: React.FC = () => {
   const appendOutput = useCallback((entry: OutputEntry) => {
     setOutputLog((prev) => [...prev.slice(-500), entry]);
     setUnreadOutput((n) => n + 1);
+  }, []);
+
+  // Auto-switch to References tab when results are pushed
+  useEffect(() => {
+    const handler = () => setActiveTab('references');
+    window.addEventListener('oasis-show-references', handler);
+    return () => window.removeEventListener('oasis-show-references', handler);
   }, []);
 
   // Subscribe to MCP tool events from the chat tool-use loop
@@ -94,6 +103,7 @@ export const BottomPanel: React.FC = () => {
           </div>
         )}
         {activeTab === 'problems' && <ProblemsPanel />}
+        {activeTab === 'references' && <ReferencesPanel />}
         {activeTab === 'debug' && (
           <div className="bottom-panel-placeholder">
             <p>Debug console output will appear here.</p>

@@ -191,6 +191,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('git:commit', dir, message, files),
   gitInit: (dir: string) => ipcRenderer.invoke('git:init', dir),
   gitFileOriginal: (dir: string, filePath: string) => ipcRenderer.invoke('git:file-original', dir, filePath),
+  gitBlame: (dir: string, filePath: string) => ipcRenderer.invoke('git:blame', dir, filePath),
   gitCurrentBranch: (dir: string) => ipcRenderer.invoke('git:current-branch', dir),
   gitListBranches: (dir: string) => ipcRenderer.invoke('git:list-branches', dir),
   gitCheckout: (dir: string, branch: string) => ipcRenderer.invoke('git:checkout', dir, branch),
@@ -242,6 +243,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('lsp:workspace-symbols', query),
   lspDocumentSymbols: (uri: string) =>
     ipcRenderer.invoke('lsp:document-symbols', uri),
+  lspSignatureHelp: (uri: string, line: number, character: number) =>
+    ipcRenderer.invoke('lsp:signature-help', uri, line, character),
+  lspReferences: (uri: string, line: number, character: number) =>
+    ipcRenderer.invoke('lsp:references', uri, line, character),
   lspRename: (uri: string, line: number, character: number, newName: string) =>
     ipcRenderer.invoke('lsp:rename', uri, line, character, newName),
   lspCodeAction: (uri: string, range: any, context: any) =>

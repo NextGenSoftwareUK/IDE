@@ -172,6 +172,7 @@ export interface OASISElectronAPI {
   gitCommit: (dir: string, message: string, files: string[]) => Promise<{ success: boolean; error?: string }>;
   gitInit: (dir: string) => Promise<{ success: boolean; error?: string }>;
   gitFileOriginal: (dir: string, filePath: string) => Promise<string>;
+  gitBlame: (dir: string, filePath: string) => Promise<Array<{ line: number; hash: string; author: string; summary: string; timestamp: number }>>;
   gitCurrentBranch: (dir: string) => Promise<string>;
   gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
   gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
@@ -204,6 +205,8 @@ export interface OASISElectronAPI {
   lspDefinition: (uri: string, line: number, character: number) => Promise<any>;
   lspWorkspaceSymbols: (query: string) => Promise<any[]>;
   lspDocumentSymbols: (uri: string) => Promise<any[]>;
+  lspSignatureHelp: (uri: string, line: number, character: number) => Promise<any>;
+  lspReferences: (uri: string, line: number, character: number) => Promise<any[]>;
   lspRename: (uri: string, line: number, character: number, newName: string) => Promise<any>;
   lspCodeAction: (uri: string, range: any, context: any) => Promise<any[]>;
   lspApplyWorkspaceEdit: (workspaceEdit: any) => Promise<string[]>;

@@ -630,6 +630,10 @@ ipcMain.handle('lsp:workspace-symbols', (_, query: string) =>
   lspService.getWorkspaceSymbols(query));
 ipcMain.handle('lsp:document-symbols', (_, uri: string) =>
   lspService.getDocumentSymbols(uri));
+ipcMain.handle('lsp:signature-help', (_, uri: string, line: number, character: number) =>
+  lspService.getSignatureHelp(uri, line, character));
+ipcMain.handle('lsp:references', (_, uri: string, line: number, character: number) =>
+  lspService.getReferences(uri, line, character));
 ipcMain.handle('lsp:rename', (_, uri: string, line: number, character: number, newName: string) =>
   lspService.getRename(uri, line, character, newName));
 ipcMain.handle('lsp:code-action', (_, uri: string, range: any, context: any) =>
@@ -687,6 +691,8 @@ ipcMain.handle('lsp:apply-workspace-edit', async (_, workspaceEdit: any) => {
 // ── Git file original ────────────────────────────────────────────────────────
 ipcMain.handle('git:file-original', (_, dir: string, filePath: string) =>
   gitService.getFileOriginal(dir, filePath));
+ipcMain.handle('git:blame', (_, dir: string, filePath: string) =>
+  gitService.blameFile(dir, filePath));
 
 // ── Scripts runner ───────────────────────────────────────────────────────────
 const runningScripts = new Map<string, ReturnType<typeof spawn>>();

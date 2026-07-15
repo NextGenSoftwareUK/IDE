@@ -3,6 +3,7 @@ import * as monaco from 'monaco-editor';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useStatusBar } from '../../contexts/StatusBarContext';
 import { registerOASISSnippets } from './OASISSnippets';
+import { pushReferences } from '../References/ReferencesPanel';
 import './Editor.css';
 
 let themesRegistered = false;
@@ -278,6 +279,37 @@ function registerLspProviders() {
       } catch { return { actions: [], dispose: () => {} }; }
     },
   });
+
+  // ── Signature help (parameter hints) ──────────────────────────────────────
+  monaco.languages.registerSignatureHelpProvider(['typescript', 'javascript'], {
+    signatureHelpTriggerCharacters: ['(', ','],
+    signatureHelpRetriggerCharacters: [','],
+    async provideSignatureHelp(model, position) {
+      const api = window.electronAPI;
+      if (!api?.lspSignatureHelp) return null;
+      try {
+        const result = await api.lspSignatureHelp(
+          model.uri.toString(), position.lineNumber - 1, position.column - 1,
+        );
+        if (!result?.signatures?.length) return null;
+        return {
+          value: {
+            signatures: result.signatures.map((sig: any) => ({
+              label: sig.label,
+              documentation: sig.documentation ? { value: sig.documentation.value ?? sig.documentation } : undefined,
+              parameters: (sig.parameters ?? []).map((p: any) => ({
+                label: p.label,
+                documentation: p.documentation ? { value: p.documentation.value ?? p.documentation } : undefined,
+              })),
+            })),
+            activeSignature: result.activeSignature ?? 0,
+            activeParameter: result.activeParameter ?? 0,
+          },
+          dispose: () => {},
+        };
+      } catch { return null; }
+    },
+  });
 }
 
 // ── Per-tab model cache ───────────────────────────────────────────────────────
@@ -323,7 +355,7 @@ export const Editor: React.FC<EditorProps> = ({
   const monacoEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const {
     tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
-    setFileContent, save, saveTab, closeTab, setActiveTab, openFile,
+    setFileContent, save, saveTab, closeTab, setActiveTab, openFile, workspacePath,
   } = useWorkspace();
   const { setCursor, setLspReady, setEol, setIndent } = useStatusBar();
 
@@ -383,6 +415,24 @@ export const Editor: React.FC<EditorProps> = ({
     // Ctrl+Shift+I — format document (LSP formatter)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyI, () => {
       editor.getAction('editor.action.formatDocument')?.run();
+    });
+
+    // Shift+F12 — find all references via LSP
+    editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F12, async () => {
+      const api = window.electronAPI;
+      if (!api?.lspReferences) return;
+      const model = editor.getModel();
+      const pos = editor.getPosition();
+      if (!model || !pos) return;
+      try {
+        const word = model.getWordAtPosition(pos);
+        const symbol = word?.word ?? '';
+        const result = await api.lspReferences(
+          model.uri.toString(), pos.lineNumber - 1, pos.column - 1,
+        );
+        pushReferences({ symbol, locations: result ?? [] });
+        window.dispatchEvent(new CustomEvent('oasis-show-references'));
+      } catch {}
     });
 
     // F12 — go to definition via LSP
@@ -612,6 +662,54 @@ export const Editor: React.FC<EditorProps> = ({
       }
     }
   }, [tabs]);
+
+  // Git blame decorations — show dim annotation after each line (left pane only)
+  const blameDecorationsRef = useRef<string[]>([]);
+  useEffect(() => {
+    if (isRightPane || !activeTabPath) return;
+    const editor = monacoEditorRef.current;
+    if (!editor) return;
+    const api = window.electronAPI;
+    if (!api?.gitBlame) return;
+
+    // Clear existing decorations whenever tab changes
+    blameDecorationsRef.current = editor.deltaDecorations(blameDecorationsRef.current, []);
+
+    if (!workspacePath) return;
+
+    let cancelled = false;
+    api.gitBlame(workspacePath, activeTabPath).then((entries) => {
+      if (cancelled || !entries?.length) return;
+      const ed = monacoEditorRef.current;
+      if (!ed) return;
+
+      const now = Math.floor(Date.now() / 1000);
+      function relTime(ts: number) {
+        const diff = now - ts;
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
+        if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}mo ago`;
+        return `${Math.floor(diff / (86400 * 365))}y ago`;
+      }
+
+      const decorations: monaco.editor.IModelDeltaDecoration[] = entries.map((e) => ({
+        range: new monaco.Range(e.line, 1, e.line, 1),
+        options: {
+          isWholeLine: false,
+          after: {
+            content: `  ${e.hash}  ${e.author}  ${relTime(e.timestamp)}`,
+            inlineClassName: 'blame-annotation',
+          },
+        },
+      }));
+
+      blameDecorationsRef.current = ed.deltaDecorations(blameDecorationsRef.current, decorations);
+    }).catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [activeTabPath, isRightPane, workspacePath]);
 
   const handleTabClose = useCallback(
     (e: React.MouseEvent, path: string) => {

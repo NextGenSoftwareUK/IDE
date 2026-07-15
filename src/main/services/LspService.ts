@@ -70,6 +70,8 @@ export class LspService extends EventEmitter {
           definition: {},
           documentSymbol: { hierarchicalDocumentSymbolSupport: true },
           formatting: {},
+          references: {},
+          signatureHelp: { signatureInformation: { parameterInformation: { labelOffsetSupport: false } } },
           rename: { prepareSupport: false },
           codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'source'] } } },
         },
@@ -138,6 +140,28 @@ export class LspService extends EventEmitter {
     if (!this.initialized) return [];
     try {
       const result = await this.request('workspace/symbol', { query });
+      return Array.isArray(result) ? result : [];
+    } catch { return []; }
+  }
+
+  async getSignatureHelp(uri: string, line: number, character: number): Promise<any> {
+    if (!this.initialized) return null;
+    try {
+      return await this.request('textDocument/signatureHelp', {
+        textDocument: { uri },
+        position: { line, character },
+      });
+    } catch { return null; }
+  }
+
+  async getReferences(uri: string, line: number, character: number): Promise<any[]> {
+    if (!this.initialized) return [];
+    try {
+      const result = await this.request('textDocument/references', {
+        textDocument: { uri },
+        position: { line, character },
+        context: { includeDeclaration: true },
+      });
       return Array.isArray(result) ? result : [];
     } catch { return []; }
   }

@@ -94,4 +94,54 @@ export class GitService {
       return await git(dir, ['show', `HEAD:${rel}`]);
     } catch { return ''; }
   }
+
+  async blameFile(dir: string, filePath: string): Promise<BlameEntry[]> {
+    try {
+      const rel = filePath.replace(/\\/g, '/');
+      const out = await git(dir, ['blame', '--porcelain', '--', rel]);
+      if (!out) return [];
+      const lines = out.split('\n');
+      const commits = new Map<string, { author: string; summary: string; timestamp: number }>();
+      const result: BlameEntry[] = [];
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (!line) { i++; continue; }
+        // Header line: <40-char hash> <orig-line> <final-line> [<num>]
+        const headerMatch = line.match(/^([0-9a-f]{40}) \d+ (\d+)/);
+        if (!headerMatch) { i++; continue; }
+        const hash = headerMatch[1];
+        const finalLine = parseInt(headerMatch[2], 10);
+        i++;
+        // Read commit metadata lines until we hit the filename line
+        if (!commits.has(hash)) {
+          let author = '';
+          let summary = '';
+          let timestamp = 0;
+          while (i < lines.length && !lines[i].startsWith('\t')) {
+            const meta = lines[i];
+            if (meta.startsWith('author ') && !meta.startsWith('author-')) author = meta.slice(7).trim();
+            else if (meta.startsWith('summary ')) summary = meta.slice(8).trim();
+            else if (meta.startsWith('author-time ')) timestamp = parseInt(meta.slice(12), 10);
+            i++;
+          }
+          commits.set(hash, { author, summary, timestamp });
+        } else {
+          while (i < lines.length && !lines[i].startsWith('\t')) i++;
+        }
+        i++; // skip the \t<content> line
+        const meta = commits.get(hash)!;
+        result.push({ line: finalLine, hash: hash.slice(0, 8), author: meta.author, summary: meta.summary, timestamp: meta.timestamp });
+      }
+      return result;
+    } catch { return []; }
+  }
+}
+
+export interface BlameEntry {
+  line: number;
+  hash: string;
+  author: string;
+  summary: string;
+  timestamp: number;
 }
