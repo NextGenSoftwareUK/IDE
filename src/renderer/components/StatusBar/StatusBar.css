@@ -108,3 +108,13 @@
 .status-bar__menu-item:hover { background: rgba(59,130,246,0.15); color: #e2f0ff; }
 .status-bar__menu-item.active { color: #7dd3fc; }
 
+/* ── Diagnostic counts ───────────────────────────────────────────────────── */
+.status-bar__diag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.status-bar__diag-errors  { color: #f87171; font-weight: 600; }
+.status-bar__diag-warnings { color: #fbbf24; font-weight: 600; }
+

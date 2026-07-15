@@ -174,6 +174,7 @@ export interface OASISElectronAPI {
   gitInit: (dir: string) => Promise<{ success: boolean; error?: string }>;
   gitFileOriginal: (dir: string, filePath: string) => Promise<string>;
   gitBlame: (dir: string, filePath: string) => Promise<Array<{ line: number; hash: string; author: string; summary: string; timestamp: number }>>;
+  shellReveal: (filePath: string) => Promise<void>;
   gitCurrentBranch: (dir: string) => Promise<string>;
   gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
   gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
@@ -226,7 +227,7 @@ declare global {
 }
 
 function AppInner() {
-  const { cursorLine, cursorCol, lspReady, eol, indentType, indentSize } = useStatusBar();
+  const { cursorLine, cursorCol, lspReady, eol, indentType, indentSize, errorCount, warningCount } = useStatusBar();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);   // Ctrl+P  — file picker
@@ -318,6 +319,7 @@ function AppInner() {
         <StatusBar
           cursorLine={cursorLine} cursorCol={cursorCol} lspReady={lspReady}
           eol={eol} indentType={indentType} indentSize={indentSize}
+          errorCount={errorCount} warningCount={warningCount}
           onEolChange={(e) => window.dispatchEvent(new CustomEvent('oasis-set-eol', { detail: e }))}
           onIndentChange={(t, s) => window.dispatchEvent(new CustomEvent('oasis-set-indent', { detail: { type: t, size: s } }))}
         />

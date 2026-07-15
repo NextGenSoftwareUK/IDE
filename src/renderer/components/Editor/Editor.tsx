@@ -358,7 +358,7 @@ export const Editor: React.FC<EditorProps> = ({
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile, workspacePath,
     navigateBack, navigateForward,
   } = useWorkspace();
-  const { setCursor, setLspReady, setEol, setIndent } = useStatusBar();
+  const { setCursor, setLspReady, setEol, setIndent, setDiagnosticCounts } = useStatusBar();
 
   // In right-pane mode, use override values; otherwise use context
   const isRightPane = overrideTabPath !== undefined;
@@ -366,6 +366,52 @@ export const Editor: React.FC<EditorProps> = ({
   const activeTabPath = isRightPane ? overrideTabPath : ctxActiveTabPath;
 
   const docVersions = useRef<Map<string, number>>(new Map());
+
+  // ── Tab context menu ──────────────────────────────────────────────────────
+  const [tabMenu, setTabMenu] = React.useState<{ x: number; y: number; path: string } | null>(null);
+
+  const openTabMenu = React.useCallback((e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setTabMenu({ x: e.clientX, y: e.clientY, path });
+  }, []);
+
+  const closeTabMenu = React.useCallback(() => setTabMenu(null), []);
+
+  React.useEffect(() => {
+    if (!tabMenu) return;
+    const close = () => setTabMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [tabMenu]);
+
+  const handleMenuClose = React.useCallback((path: string) => {
+    closeTab(path);
+    closeTabMenu();
+  }, [closeTab, closeTabMenu]);
+
+  const handleMenuCloseOthers = React.useCallback((keepPath: string) => {
+    const toClose = tabs.filter((t) => t.path !== keepPath).map((t) => t.path);
+    toClose.forEach(closeTab);
+    closeTabMenu();
+  }, [tabs, closeTab, closeTabMenu]);
+
+  const handleMenuCloseRight = React.useCallback((path: string) => {
+    const idx = tabs.findIndex((t) => t.path === path);
+    if (idx === -1) return;
+    tabs.slice(idx + 1).forEach((t) => closeTab(t.path));
+    closeTabMenu();
+  }, [tabs, closeTab, closeTabMenu]);
+
+  const handleMenuCopyPath = React.useCallback((path: string) => {
+    navigator.clipboard.writeText(path.replace(/\\/g, '/'));
+    closeTabMenu();
+  }, [closeTabMenu]);
+
+  const handleMenuReveal = React.useCallback((path: string) => {
+    (window as any).electronAPI?.shellReveal?.(path);
+    closeTabMenu();
+  }, [closeTabMenu]);
 
   // Create Monaco editor once
   useEffect(() => {
@@ -390,6 +436,9 @@ export const Editor: React.FC<EditorProps> = ({
       suggestOnTriggerCharacters: true,
       quickSuggestions: true,
       parameterHints: { enabled: true },
+      bracketPairColorization: { enabled: true },
+      guides: { bracketPairs: true, indentation: true },
+      stickyScroll: { enabled: true },
     });
 
     monacoEditorRef.current = editor;
@@ -501,6 +550,8 @@ export const Editor: React.FC<EditorProps> = ({
   }, [navigateBack, navigateForward]);
 
   // Subscribe to LSP publishDiagnostics → Monaco markers + signal LSP ready
+  // Maintain per-file counts and push aggregated totals to StatusBar
+  const diagCountsRef = useRef<Map<string, { e: number; w: number }>>(new Map());
   useEffect(() => {
     const api = window.electronAPI;
     if (!api?.onLspDiagnostics) return;
@@ -520,6 +571,15 @@ export const Editor: React.FC<EditorProps> = ({
         code: d.code?.toString(),
       }));
       monaco.editor.setModelMarkers(model, 'lsp', markers);
+
+      if (!isRightPane) {
+        const e = params.diagnostics.filter((d: any) => d.severity === 1).length;
+        const w = params.diagnostics.filter((d: any) => d.severity === 2).length;
+        diagCountsRef.current.set(params.uri, { e, w });
+        let totalE = 0, totalW = 0;
+        diagCountsRef.current.forEach((c) => { totalE += c.e; totalW += c.w; });
+        setDiagnosticCounts(totalE, totalW);
+      }
     });
   }, []);
 
@@ -747,6 +807,7 @@ export const Editor: React.FC<EditorProps> = ({
               className={`editor-tab-item ${isActive ? 'active' : ''}`}
               title={tab.path}
               onClick={() => isRightPane ? onTabChange?.(tab.path) : setActiveTab(tab.path)}
+              onContextMenu={(e) => openTabMenu(e, tab.path)}
             >
               <span className="editor-tab-name">{name}</span>
               {isDirty && <span className="editor-tab-dirty" title="Unsaved">●</span>}
@@ -783,6 +844,22 @@ export const Editor: React.FC<EditorProps> = ({
       )}
 
       <div ref={editorRef} className="editor" />
+
+      {/* ── Tab context menu ── */}
+      {tabMenu && (
+        <div
+          className="tab-context-menu"
+          style={{ left: tabMenu.x, top: tabMenu.y }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button type="button" className="tab-context-item" onClick={() => handleMenuClose(tabMenu.path)}>Close</button>
+          <button type="button" className="tab-context-item" onClick={() => handleMenuCloseOthers(tabMenu.path)}>Close Others</button>
+          <button type="button" className="tab-context-item" onClick={() => handleMenuCloseRight(tabMenu.path)}>Close to the Right</button>
+          <div className="tab-context-sep" />
+          <button type="button" className="tab-context-item" onClick={() => handleMenuCopyPath(tabMenu.path)}>Copy Path</button>
+          <button type="button" className="tab-context-item" onClick={() => handleMenuReveal(tabMenu.path)}>Reveal in Explorer</button>
+        </div>
+      )}
     </div>
   );
 };

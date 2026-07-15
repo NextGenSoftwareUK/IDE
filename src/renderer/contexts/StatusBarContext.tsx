@@ -7,6 +7,8 @@ interface StatusBarState {
   eol: 'LF' | 'CRLF';
   indentType: 'spaces' | 'tabs';
   indentSize: number;
+  errorCount: number;
+  warningCount: number;
 }
 
 interface StatusBarContextValue extends StatusBarState {
@@ -14,6 +16,7 @@ interface StatusBarContextValue extends StatusBarState {
   setLspReady: (ready: boolean) => void;
   setEol: (eol: 'LF' | 'CRLF') => void;
   setIndent: (type: 'spaces' | 'tabs', size: number) => void;
+  setDiagnosticCounts: (errors: number, warnings: number) => void;
 }
 
 const StatusBarContext = createContext<StatusBarContextValue | null>(null);
@@ -22,6 +25,7 @@ export function StatusBarProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StatusBarState>({
     cursorLine: 1, cursorCol: 1, lspReady: false,
     eol: 'LF', indentType: 'spaces', indentSize: 2,
+    errorCount: 0, warningCount: 0,
   });
 
   const setCursor = useCallback((line: number, col: number) => {
@@ -40,8 +44,12 @@ export function StatusBarProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ ...s, indentType, indentSize }));
   }, []);
 
+  const setDiagnosticCounts = useCallback((errorCount: number, warningCount: number) => {
+    setState((s) => ({ ...s, errorCount, warningCount }));
+  }, []);
+
   return (
-    <StatusBarContext.Provider value={{ ...state, setCursor, setLspReady, setEol, setIndent }}>
+    <StatusBarContext.Provider value={{ ...state, setCursor, setLspReady, setEol, setIndent, setDiagnosticCounts }}>
       {children}
     </StatusBarContext.Provider>
   );

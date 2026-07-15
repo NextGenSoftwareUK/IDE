@@ -9,6 +9,8 @@ interface StatusBarProps {
   eol?: 'LF' | 'CRLF';
   indentType?: 'spaces' | 'tabs';
   indentSize?: number;
+  errorCount?: number;
+  warningCount?: number;
   onEolChange?: (eol: 'LF' | 'CRLF') => void;
   onIndentChange?: (type: 'spaces' | 'tabs', size: number) => void;
 }
@@ -30,6 +32,7 @@ const INDENT_SIZES = [2, 4, 8];
 export function StatusBar({
   cursorLine = 1, cursorCol = 1, lspReady = false,
   eol = 'LF', indentType = 'spaces', indentSize = 2,
+  errorCount = 0, warningCount = 0,
   onEolChange, onIndentChange,
 }: StatusBarProps) {
   const { workspacePath, activeTabPath } = useWorkspace();
@@ -78,6 +81,12 @@ export function StatusBar({
           <span className={`status-bar__dot ${lspReady ? 'status-bar__dot--ready' : 'status-bar__dot--loading'}`} />
           {lspReady ? 'LSP ready' : 'LSP loading'}
         </span>
+        {lspReady && (errorCount > 0 || warningCount > 0) && (
+          <span className="status-bar__item status-bar__diag" title={`${errorCount} error${errorCount !== 1 ? 's' : ''}, ${warningCount} warning${warningCount !== 1 ? 's' : ''}`}>
+            {errorCount > 0 && <span className="status-bar__diag-errors">✗ {errorCount}</span>}
+            {warningCount > 0 && <span className="status-bar__diag-warnings">⚠ {warningCount}</span>}
+          </span>
+        )}
       </div>
 
       <div className="status-bar__right">

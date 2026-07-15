@@ -140,3 +140,5 @@
   margin-left: 5px;
   line-height: 1;
 }
+.bottom-tab-badge--error { background: #c0392b; }
+.bottom-tab-badge--warn  { background: #b07800; }

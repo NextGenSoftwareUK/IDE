@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MCPServerManager } from './services/MCPServerManager.js';
@@ -700,6 +700,8 @@ ipcMain.handle('git:file-original', (_, dir: string, filePath: string) =>
   gitService.getFileOriginal(dir, filePath));
 ipcMain.handle('git:blame', (_, dir: string, filePath: string) =>
   gitService.blameFile(dir, filePath));
+
+ipcMain.handle('shell:reveal', (_, filePath: string) => shell.showItemInFolder(filePath));
 
 // ── Scripts runner ───────────────────────────────────────────────────────────
 const runningScripts = new Map<string, ReturnType<typeof spawn>>();

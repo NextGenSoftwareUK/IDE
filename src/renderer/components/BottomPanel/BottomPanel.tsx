@@ -3,6 +3,7 @@ import { TerminalPanel } from '../Terminal/TerminalPanel';
 import { ProblemsPanel } from '../Problems/ProblemsPanel';
 import { ScriptsPanel } from '../Scripts/ScriptsPanel';
 import { ReferencesPanel } from '../References/ReferencesPanel';
+import { useStatusBar } from '../../contexts/StatusBarContext';
 import './BottomPanel.css';
 
 type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'debug';
@@ -24,6 +25,7 @@ const TABS: { id: BottomTabId; label: string }[] = [
 
 export const BottomPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<BottomTabId>('terminal');
+  const { errorCount, warningCount } = useStatusBar();
   const [outputLog, setOutputLog] = useState<OutputEntry[]>([]);
   const [unreadOutput, setUnreadOutput] = useState(0);
   const outputEndRef = useRef<HTMLDivElement>(null);
@@ -75,6 +77,12 @@ export const BottomPanel: React.FC = () => {
             {tab.label}
             {tab.id === 'output' && unreadOutput > 0 && activeTab !== 'output' && (
               <span className="bottom-tab-badge">{unreadOutput}</span>
+            )}
+            {tab.id === 'problems' && errorCount > 0 && (
+              <span className="bottom-tab-badge bottom-tab-badge--error" title={`${errorCount} error${errorCount !== 1 ? 's' : ''}`}>{errorCount}</span>
+            )}
+            {tab.id === 'problems' && errorCount === 0 && warningCount > 0 && (
+              <span className="bottom-tab-badge bottom-tab-badge--warn" title={`${warningCount} warning${warningCount !== 1 ? 's' : ''}`}>{warningCount}</span>
             )}
           </button>
         ))}

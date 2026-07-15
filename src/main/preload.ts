@@ -264,6 +264,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('lsp:diagnostics', h);
   },
 
+  // ── Shell ─────────────────────────────────────────────────────────────────
+  shellReveal: (filePath: string) => ipcRenderer.invoke('shell:reveal', filePath),
+
   // ── Window ────────────────────────────────────────────────────────────────
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
