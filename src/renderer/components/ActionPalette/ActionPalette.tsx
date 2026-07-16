@@ -69,6 +69,8 @@ export const ActionPalette: React.FC<Props> = ({
       run: () => { onClose(); setTimeout(() => window.location.reload(), 100); } },
     { id: 'view.zen', label: 'View: Toggle Zen Mode', description: 'Collapse all panels, focus the editor', shortcut: 'Ctrl+K Z', category: 'View',
       run: () => { onClose(); onToggleZen(); } },
+    { id: 'view.mdpreview', label: 'View: Toggle Markdown Preview', description: 'Side-by-side preview for .md files', shortcut: 'Ctrl+Shift+V', category: 'View',
+      run: () => { onClose(); document.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, shiftKey: true, key: 'V', bubbles: true })); } },
     { id: 'window.minimize', label: 'Window: Minimize', category: 'Window',
       run: () => { window.electronAPI?.minimize?.(); onClose(); } },
     { id: 'window.maximize', label: 'Window: Toggle Maximize', category: 'Window',

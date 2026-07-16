@@ -77,6 +77,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Keep tabsRef in sync so callbacks can read current tabs without stale closures
   useEffect(() => { tabsRef.current = tabs; }, [tabs]);
 
+  // Auto-save all dirty tabs on window blur (onFocusChange mode)
+  useEffect(() => {
+    const handler = () => {
+      if (autoSaveSettingsRef.current.mode !== 'onFocusChange') return;
+      setTabs((prev) => {
+        const dirty = prev.filter((t) => t.content !== t.savedContent);
+        if (dirty.length === 0) return prev;
+        dirty.forEach((t) => {
+          window.electronAPI?.writeFile?.(t.path, t.content);
+        });
+        return prev.map((t) => t.content !== t.savedContent ? { ...t, savedContent: t.content } : t);
+      });
+    };
+    window.addEventListener('blur', handler);
+    return () => window.removeEventListener('blur', handler);
+  }, []);
+
   // Auto-reload open tabs when an external process changes a file on disk
   useEffect(() => {
     const api = window.electronAPI;

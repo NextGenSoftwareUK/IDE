@@ -67,6 +67,7 @@ export const SettingsPanel: React.FC = () => {
           >
             <option value="off">Off</option>
             <option value="afterDelay">After delay</option>
+            <option value="onFocusChange">On focus change</option>
           </select>
         </div>
 
