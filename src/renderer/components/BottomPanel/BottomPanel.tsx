@@ -3,10 +3,11 @@ import { TerminalPanel } from '../Terminal/TerminalPanel';
 import { ProblemsPanel } from '../Problems/ProblemsPanel';
 import { ScriptsPanel } from '../Scripts/ScriptsPanel';
 import { ReferencesPanel } from '../References/ReferencesPanel';
+import { TodoPanel } from '../TodoPanel/TodoPanel';
 import { useStatusBar } from '../../contexts/StatusBarContext';
 import './BottomPanel.css';
 
-type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'debug';
+type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'todos' | 'debug';
 
 interface OutputEntry {
   ts: number;
@@ -20,6 +21,7 @@ const TABS: { id: BottomTabId; label: string }[] = [
   { id: 'output', label: 'Output' },
   { id: 'problems', label: 'Problems' },
   { id: 'references', label: 'References' },
+  { id: 'todos', label: 'TODOs' },
   { id: 'debug', label: 'Debug Console' },
 ];
 
@@ -112,6 +114,7 @@ export const BottomPanel: React.FC = () => {
         )}
         {activeTab === 'problems' && <ProblemsPanel />}
         {activeTab === 'references' && <ReferencesPanel />}
+        {activeTab === 'todos' && <TodoPanel />}
         {activeTab === 'debug' && (
           <div className="bottom-panel-placeholder">
             <p>Debug console output will appear here.</p>

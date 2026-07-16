@@ -77,6 +77,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Keep tabsRef in sync so callbacks can read current tabs without stale closures
   useEffect(() => { tabsRef.current = tabs; }, [tabs]);
 
+
   // Auto-save all dirty tabs on window blur (onFocusChange mode)
   useEffect(() => {
     const handler = () => {
@@ -266,6 +267,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setActiveTabPathState(path);
     isHistoryNavRef.current = false;
   }, []);
+
+  // oasis-open-file-line: open a file and jump to a line (used by TodoPanel)
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const { path, line } = (e as CustomEvent<{ path: string; line: number }>).detail;
+      await openFile(path);
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('oasis-goto-line', { detail: line }));
+      }, 150);
+    };
+    window.addEventListener('oasis-open-file-line', handler);
+    return () => window.removeEventListener('oasis-open-file-line', handler);
+  }, [openFile]);
 
   const navigateForward = useCallback(() => {
     const idx = historyIdxRef.current;

@@ -28,6 +28,8 @@ const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; desc: str
       { keys: ['Ctrl', '.'],        desc: 'Code actions — quick fixes, auto-imports' },
       { keys: ['Ctrl', 'K', 'Z'],        desc: 'Zen mode — hide all panels, focus editor' },
       { keys: ['Ctrl', 'Shift', 'V'],   desc: 'Toggle Markdown preview (side-by-side)' },
+      { keys: ['Ctrl', 'Shift', 'D'],   desc: 'Toggle inline diff (current buffer vs saved)' },
+      { keys: ['Alt', 'F12'],           desc: 'Peek definition inline (no navigation)' },
       { keys: ['Ctrl', 'H'],  desc: 'Find & replace in file' },
       { keys: ['Ctrl', '='],  desc: 'Zoom in' },
       { keys: ['Ctrl', '-'],  desc: 'Zoom out' },

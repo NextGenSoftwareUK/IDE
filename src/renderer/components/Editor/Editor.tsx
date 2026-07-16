@@ -4,6 +4,7 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { useStatusBar } from '../../contexts/StatusBarContext';
 import { registerOASISSnippets } from './OASISSnippets';
 import { pushReferences } from '../References/ReferencesPanel';
+import { MonacoDiffViewer } from '../Git/MonacoDiffViewer';
 import './Editor.css';
 
 let themesRegistered = false;
@@ -367,6 +368,10 @@ export const Editor: React.FC<EditorProps> = ({
 
   const docVersions = useRef<Map<string, number>>(new Map());
 
+  // ── Inline diff panel ────────────────────────────────────────────────────
+  const [diffOpen, setDiffOpen] = React.useState(false);
+  const [diffSaved, setDiffSaved] = React.useState('');
+
   // ── Tab context menu ──────────────────────────────────────────────────────
   const [tabMenu, setTabMenu] = React.useState<{ x: number; y: number; path: string } | null>(null);
 
@@ -526,6 +531,21 @@ export const Editor: React.FC<EditorProps> = ({
           ed.revealPositionInCenter({ lineNumber: line, column: col });
         }, 150);
       } catch (e) { console.error('Go to definition failed:', e); }
+    });
+
+    // Alt+F12 — peek definition inline
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.F12, () => {
+      editor.getAction('editor.action.peekDefinition')?.run();
+    });
+
+    // Ctrl+Shift+D — toggle inline diff (current buffer vs saved on disk)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD, async () => {
+      const model = editor.getModel();
+      if (!model) return;
+      const filePath = decodeURIComponent(model.uri.path.replace(/^\//, '').replace(/\//g, '\\'));
+      const diskContent = await window.electronAPI?.readFile?.(filePath) ?? '';
+      setDiffSaved(diskContent);
+      setDiffOpen((v) => !v);
     });
 
     return () => {
@@ -843,7 +863,24 @@ export const Editor: React.FC<EditorProps> = ({
         </div>
       )}
 
-      <div ref={editorRef} className="editor" />
+      <div ref={editorRef} className={`editor${diffOpen ? ' editor--with-diff' : ''}`} />
+
+      {/* ── Inline diff panel ── */}
+      {diffOpen && activeTabPath && (() => {
+        const tab = tabs.find((t) => t.path === activeTabPath);
+        const lang = activeTabPath.split('.').pop()?.toLowerCase() ?? 'plaintext';
+        return (
+          <div className="editor-diff-panel">
+            <div className="editor-diff-header">
+              <span className="editor-diff-title">Changes — {activeTabPath.replace(/\\/g, '/').split('/').pop()}</span>
+              <button type="button" className="editor-diff-close" onClick={() => setDiffOpen(false)} title="Close diff (Ctrl+Shift+D)">✕</button>
+            </div>
+            <div className="editor-diff-body">
+              <MonacoDiffViewer original={diffSaved} modified={tab?.content ?? ''} language={lang} filePath={activeTabPath} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Tab context menu ── */}
       {tabMenu && (

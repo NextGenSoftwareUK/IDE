@@ -1,0 +1,126 @@
+.todo-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-primary, #091a2d);
+  overflow: hidden;
+}
+
+.todo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid #1a3a5c;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.todo-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.todo-filter {
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid #1a3a5c;
+  background: transparent;
+  color: #a8bfd8;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.todo-filter:hover { border-color: #3a6a9a; color: #e2f0ff; }
+.todo-filter.active { background: #1a3a5c; color: #e2f0ff; border-color: #3a6a9a; }
+.todo-filter--fixme.active,
+.todo-filter--xxx.active  { background: rgba(248,113,113,0.15); border-color: #f87171; color: #f87171; }
+.todo-filter--hack.active { background: rgba(251,191,36,0.12); border-color: #fbbf24; color: #fbbf24; }
+.todo-filter--todo.active { background: rgba(125,211,252,0.12); border-color: #7dd3fc; color: #7dd3fc; }
+.todo-filter--note.active { background: rgba(134,239,172,0.12); border-color: #86efac; color: #86efac; }
+
+.todo-count {
+  font-weight: 700;
+  margin-left: 3px;
+}
+
+.todo-refresh {
+  background: transparent;
+  border: none;
+  color: #6a80a8;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.todo-refresh:hover { color: #e2f0ff; }
+.todo-refresh:disabled { opacity: 0.4; cursor: default; }
+
+.todo-empty {
+  padding: 14px 16px;
+  font-size: 12px;
+  color: #6a80a8;
+  margin: 0;
+}
+
+.todo-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  row-gap: 1px;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+.todo-item:hover { background: rgba(59,130,246,0.08); }
+
+.todo-marker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  grid-row: 1;
+  grid-column: 1;
+  align-self: center;
+}
+
+.todo-text {
+  font-size: 12px;
+  color: #c8d8ec;
+  grid-row: 1;
+  grid-column: 2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.todo-loc {
+  font-size: 11px;
+  color: #a8bfd8;
+  font-variant-numeric: tabular-nums;
+  grid-row: 1;
+  grid-column: 3;
+  white-space: nowrap;
+  font-family: 'Fira Code', monospace;
+}
+
+.todo-rel {
+  font-size: 10px;
+  color: #4a6a8a;
+  grid-row: 2;
+  grid-column: 2 / 4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
