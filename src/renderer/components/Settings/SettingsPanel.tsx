@@ -141,6 +141,21 @@ export const SettingsPanel: React.FC = () => {
           </select>
         </div>
 
+        <div className="settings-field">
+          <label className="settings-label">Rulers (columns)</label>
+          <select
+            className="settings-input"
+            value={values['EDITOR_RULERS'] ?? 'none'}
+            onChange={(e) => handleChange('EDITOR_RULERS', e.target.value)}
+          >
+            <option value="none">None</option>
+            <option value="80">80</option>
+            <option value="100">100</option>
+            <option value="120">120</option>
+            <option value="80,120">80 and 120</option>
+          </select>
+        </div>
+
         <p className="settings-section-label">OASIS Services</p>
         <p className="settings-hint">
           Changes apply immediately to running layer clients. Restart the IDE after changing MCP or STAR paths.

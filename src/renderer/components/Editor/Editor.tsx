@@ -357,7 +357,7 @@ export const Editor: React.FC<EditorProps> = ({
   const {
     tabs: ctxTabs, activeTabPath: ctxActiveTabPath, openFilePath, fileContent, dirty,
     setFileContent, save, saveTab, closeTab, setActiveTab, openFile, workspacePath,
-    navigateBack, navigateForward,
+    navigateBack, navigateForward, togglePin,
   } = useWorkspace();
   const { setCursor, setLspReady, setEol, setIndent, setDiagnosticCounts } = useStatusBar();
 
@@ -371,6 +371,11 @@ export const Editor: React.FC<EditorProps> = ({
   // ── Inline diff panel ────────────────────────────────────────────────────
   const [diffOpen, setDiffOpen] = React.useState(false);
   const [diffSaved, setDiffSaved] = React.useState('');
+
+  // ── Compare with active file ──────────────────────────────────────────────
+  const [compareOpen, setCompareOpen] = React.useState(false);
+  const [compareLeft, setCompareLeft] = React.useState<{ path: string; content: string } | null>(null);
+  const [compareRight, setCompareRight] = React.useState<{ path: string; content: string } | null>(null);
 
   // ── Tab context menu ──────────────────────────────────────────────────────
   const [tabMenu, setTabMenu] = React.useState<{ x: number; y: number; path: string } | null>(null);
@@ -391,20 +396,19 @@ export const Editor: React.FC<EditorProps> = ({
   }, [tabMenu]);
 
   const handleMenuClose = React.useCallback((path: string) => {
-    closeTab(path);
+    (closeTab as any)(path, true); // force-close even if pinned
     closeTabMenu();
   }, [closeTab, closeTabMenu]);
 
   const handleMenuCloseOthers = React.useCallback((keepPath: string) => {
-    const toClose = tabs.filter((t) => t.path !== keepPath).map((t) => t.path);
-    toClose.forEach(closeTab);
+    tabs.filter((t) => t.path !== keepPath && !t.pinned).forEach((t) => closeTab(t.path));
     closeTabMenu();
   }, [tabs, closeTab, closeTabMenu]);
 
   const handleMenuCloseRight = React.useCallback((path: string) => {
     const idx = tabs.findIndex((t) => t.path === path);
     if (idx === -1) return;
-    tabs.slice(idx + 1).forEach((t) => closeTab(t.path));
+    tabs.slice(idx + 1).filter((t) => !t.pinned).forEach((t) => closeTab(t.path));
     closeTabMenu();
   }, [tabs, closeTab, closeTabMenu]);
 
@@ -417,6 +421,23 @@ export const Editor: React.FC<EditorProps> = ({
     (window as any).electronAPI?.shellReveal?.(path);
     closeTabMenu();
   }, [closeTabMenu]);
+
+  const handleMenuPin = React.useCallback((path: string) => {
+    togglePin(path);
+    closeTabMenu();
+  }, [togglePin, closeTabMenu]);
+
+  const handleMenuCompare = React.useCallback(async (path: string) => {
+    closeTabMenu();
+    if (!activeTabPath || path === activeTabPath) return;
+    const leftTab = tabs.find((t) => t.path === activeTabPath);
+    const rightTab = tabs.find((t) => t.path === path);
+    const leftContent = leftTab?.content ?? await (window.electronAPI?.readFile?.(activeTabPath) ?? Promise.resolve(''));
+    const rightContent = rightTab?.content ?? await (window.electronAPI?.readFile?.(path) ?? Promise.resolve(''));
+    setCompareLeft({ path: activeTabPath, content: leftContent });
+    setCompareRight({ path, content: rightContent });
+    setCompareOpen(true);
+  }, [activeTabPath, tabs, closeTabMenu]);
 
   // Create Monaco editor once
   useEffect(() => {
@@ -668,10 +689,14 @@ export const Editor: React.FC<EditorProps> = ({
         monaco.editor.setTheme(s?.EDITOR_THEME ?? 'oasis-dark');
         const editor = monacoEditorRef.current;
         if (editor) {
+          const rulerSetting = s?.EDITOR_RULERS ?? 'none';
+          const rulers = rulerSetting === 'none' ? [] :
+            rulerSetting.split(',').map((c: string) => ({ column: parseInt(c.trim(), 10), color: '#1a3a5c' }));
           editor.updateOptions({
             fontSize: Math.max(8, Math.min(32, parseInt(s?.EDITOR_FONT_SIZE ?? '14', 10) || 14)),
             wordWrap: (s?.EDITOR_WORD_WRAP ?? 'on') as monaco.editor.IEditorOptions['wordWrap'],
             minimap: { enabled: s?.EDITOR_MINIMAP !== 'false' },
+            rulers,
           });
         }
       });
@@ -824,18 +849,19 @@ export const Editor: React.FC<EditorProps> = ({
           return (
             <div
               key={tab.path}
-              className={`editor-tab-item ${isActive ? 'active' : ''}`}
+              className={`editor-tab-item ${isActive ? 'active' : ''}${tab.pinned ? ' pinned' : ''}`}
               title={tab.path}
               onClick={() => isRightPane ? onTabChange?.(tab.path) : setActiveTab(tab.path)}
               onContextMenu={(e) => openTabMenu(e, tab.path)}
             >
+              {tab.pinned && <span className="editor-tab-pin" title="Pinned">📌</span>}
               <span className="editor-tab-name">{name}</span>
               {isDirty && <span className="editor-tab-dirty" title="Unsaved">●</span>}
               <button
                 type="button"
                 className="editor-tab-close"
                 onClick={(e) => handleTabClose(e, tab.path)}
-                title="Close"
+                title={tab.pinned ? 'Unpin and close' : 'Close'}
               >
                 ✕
               </button>
@@ -882,21 +908,54 @@ export const Editor: React.FC<EditorProps> = ({
         );
       })()}
 
-      {/* ── Tab context menu ── */}
-      {tabMenu && (
-        <div
-          className="tab-context-menu"
-          style={{ left: tabMenu.x, top: tabMenu.y }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <button type="button" className="tab-context-item" onClick={() => handleMenuClose(tabMenu.path)}>Close</button>
-          <button type="button" className="tab-context-item" onClick={() => handleMenuCloseOthers(tabMenu.path)}>Close Others</button>
-          <button type="button" className="tab-context-item" onClick={() => handleMenuCloseRight(tabMenu.path)}>Close to the Right</button>
-          <div className="tab-context-sep" />
-          <button type="button" className="tab-context-item" onClick={() => handleMenuCopyPath(tabMenu.path)}>Copy Path</button>
-          <button type="button" className="tab-context-item" onClick={() => handleMenuReveal(tabMenu.path)}>Reveal in Explorer</button>
+      {/* ── Compare panel ── */}
+      {compareOpen && compareLeft && compareRight && (
+        <div className="editor-compare-overlay">
+          <div className="editor-diff-header">
+            <span className="editor-diff-title">
+              {compareLeft.path.replace(/\\/g, '/').split('/').pop()} ↔ {compareRight.path.replace(/\\/g, '/').split('/').pop()}
+            </span>
+            <button type="button" className="editor-diff-close" onClick={() => setCompareOpen(false)}>✕</button>
+          </div>
+          <div className="editor-compare-body">
+            <MonacoDiffViewer
+              original={compareLeft.content}
+              modified={compareRight.content}
+              language={compareLeft.path.split('.').pop()?.toLowerCase() ?? 'plaintext'}
+              filePath={compareLeft.path}
+            />
+          </div>
         </div>
       )}
+
+      {/* ── Tab context menu ── */}
+      {tabMenu && (() => {
+        const menuTab = tabs.find((t) => t.path === tabMenu.path);
+        const canCompare = activeTabPath && tabMenu.path !== activeTabPath;
+        return (
+          <div
+            className="tab-context-menu"
+            style={{ left: tabMenu.x, top: tabMenu.y }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="tab-context-item" onClick={() => handleMenuPin(tabMenu.path)}>
+              {menuTab?.pinned ? 'Unpin Tab' : 'Pin Tab'}
+            </button>
+            <div className="tab-context-sep" />
+            <button type="button" className="tab-context-item" onClick={() => handleMenuClose(tabMenu.path)}>Close</button>
+            <button type="button" className="tab-context-item" onClick={() => handleMenuCloseOthers(tabMenu.path)}>Close Others</button>
+            <button type="button" className="tab-context-item" onClick={() => handleMenuCloseRight(tabMenu.path)}>Close to the Right</button>
+            <div className="tab-context-sep" />
+            {canCompare && (
+              <button type="button" className="tab-context-item" onClick={() => handleMenuCompare(tabMenu.path)}>
+                Compare with Active File
+              </button>
+            )}
+            <button type="button" className="tab-context-item" onClick={() => handleMenuCopyPath(tabMenu.path)}>Copy Path</button>
+            <button type="button" className="tab-context-item" onClick={() => handleMenuReveal(tabMenu.path)}>Reveal in Explorer</button>
+          </div>
+        );
+      })()}
     </div>
   );
 };

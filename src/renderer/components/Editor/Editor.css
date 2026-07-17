@@ -198,6 +198,25 @@
   pointer-events: none;
 }
 
+/* ── Pinned tab ─────────────────────────────────────────────────────────── */
+.editor-tab-item.pinned { border-top: 2px solid #7dd3fc; }
+.editor-tab-pin { font-size: 9px; margin-right: 3px; opacity: 0.75; }
+
+/* ── Compare overlay ────────────────────────────────────────────────────── */
+.editor-compare-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: #071624;
+}
+
+.editor-compare-body {
+  flex: 1;
+  min-height: 0;
+}
+
 /* ── Tab context menu ───────────────────────────────────────────────────── */
 .tab-context-menu {
   position: fixed;

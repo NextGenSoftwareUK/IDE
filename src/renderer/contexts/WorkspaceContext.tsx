@@ -12,6 +12,7 @@ export interface EditorTab {
   path: string;
   content: string;
   savedContent: string; // last saved version — dirty = content !== savedContent
+  pinned?: boolean;
 }
 
 interface WorkspaceContextValue {
@@ -38,6 +39,8 @@ interface WorkspaceContextValue {
   // tab history navigation
   navigateBack: () => void;
   navigateForward: () => void;
+  // tab pinning
+  togglePin: (path: string) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -224,7 +227,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tabs]);
 
-  const closeTab = useCallback((path: string) => {
+  const closeTab = useCallback((path: string, force = false) => {
+    // Pinned tabs can't be closed unless forced
+    if (!force) {
+      const tab = tabsRef.current.find((t) => t.path === path);
+      if (tab?.pinned) return;
+    }
     // Remove closed path from history
     const cleanHist = tabHistoryRef.current.filter((p) => p !== path);
     tabHistoryRef.current = cleanHist;
@@ -291,6 +299,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     isHistoryNavRef.current = true;
     setActiveTabPathState(path);
     isHistoryNavRef.current = false;
+  }, []);
+
+  const togglePin = useCallback((path: string) => {
+    setTabs((prev) => {
+      const updated = prev.map((t) => t.path === path ? { ...t, pinned: !t.pinned } : t);
+      // Sort: pinned tabs first, preserving relative order within each group
+      const pinned = updated.filter((t) => t.pinned);
+      const unpinned = updated.filter((t) => !t.pinned);
+      return [...pinned, ...unpinned];
+    });
   }, []);
 
   const setFileContent = useCallback((content: string) => {
@@ -377,6 +395,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     saveTab,
     navigateBack,
     navigateForward,
+    togglePin,
   };
 
   return (
