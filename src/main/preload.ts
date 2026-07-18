@@ -176,8 +176,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ── File search ───────────────────────────────────────────────────────────
-  searchFiles: (query: string, dir?: string, extensions?: string[]) =>
-    ipcRenderer.invoke('fs:search-files', query, dir, extensions),
+  searchFiles: (query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) =>
+    ipcRenderer.invoke('fs:search-files', query, dir, extensions, excludeFolders),
   getRecents: () => ipcRenderer.invoke('fs:get-recents'),
   createFile: (filePath: string) => ipcRenderer.invoke('fs:create-file', filePath),
   createFolder: (folderPath: string) => ipcRenderer.invoke('fs:create-folder', folderPath),
@@ -204,8 +204,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── Tab persistence ─────────────────────────────────────────────────────
   tabsGet: () => ipcRenderer.invoke('tabs:get'),
-  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) =>
-    ipcRenderer.invoke('tabs:save', workspacePath, tabs, activeTab),
+  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null, meta?: Array<{ path: string; pinned?: boolean }>) =>
+    ipcRenderer.invoke('tabs:save', workspacePath, tabs, activeTab, meta),
+
+  // ── Keybindings ──────────────────────────────────────────────────────────
+  keybindingsGet: () => ipcRenderer.invoke('keybindings:get'),
+  keybindingsSave: (bindings: Array<{ command: string; key: string }>) =>
+    ipcRenderer.invoke('keybindings:save', bindings),
 
   // ── Scripts runner ────────────────────────────────────────────────────────
   scriptsRun: (dir: string, script: string) => ipcRenderer.invoke('scripts:run', dir, script),

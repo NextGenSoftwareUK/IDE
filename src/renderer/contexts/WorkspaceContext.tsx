@@ -144,11 +144,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
 
       // Restore tabs
       const paths = saved?.tabs ?? [];
+      const metaMap = new Map((saved?.meta ?? []).map((m: { path: string; pinned?: boolean }) => [m.path, m]));
       const restored: EditorTab[] = [];
       for (const p of paths) {
         try {
           const content = await window.electronAPI?.readFile?.(p) ?? '';
-          restored.push({ path: p, content, savedContent: content });
+          const pinned = metaMap.get(p)?.pinned ?? false;
+          restored.push({ path: p, content, savedContent: content, ...(pinned ? { pinned: true } : {}) });
         } catch { /* file may have been deleted */ }
       }
       if (restored.length > 0) {
@@ -361,11 +363,12 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     if (activeTabPath) await saveTab(activeTabPath);
   }, [activeTabPath, saveTab]);
 
-  // Persist tabs whenever they change
+  // Persist tabs (including pinned state) whenever they change
   useEffect(() => {
     if (!workspacePath) return;
     const paths = tabs.map((t) => t.path);
-    window.electronAPI?.tabsSave?.(workspacePath, paths, activeTabPath);
+    const meta = tabs.filter((t) => t.pinned).map((t) => ({ path: t.path, pinned: true }));
+    window.electronAPI?.tabsSave?.(workspacePath, paths, activeTabPath, meta.length > 0 ? meta : undefined);
   }, [tabs, activeTabPath, workspacePath]);
 
   // Derived convenience values for the active tab

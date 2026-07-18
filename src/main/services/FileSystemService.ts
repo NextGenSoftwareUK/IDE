@@ -150,11 +150,13 @@ export class FileSystemService {
   async searchFiles(
     query: string,
     dir: string,
-    extensions?: string[]
+    extensions?: string[],
+    excludeFolders?: string[]
   ): Promise<Array<{ file: string; line: number; preview: string }>> {
     const results: Array<{ file: string; line: number; preview: string }> = [];
     const queryLower = query.toLowerCase();
-    await this.searchDir(dir, dir, queryLower, extensions ?? [], results, 0);
+    const excludeSet = new Set([...(excludeFolders ?? [])]);
+    await this.searchDir(dir, dir, queryLower, extensions ?? [], excludeSet, results, 0);
     return results.slice(0, 500);
   }
 
@@ -163,6 +165,7 @@ export class FileSystemService {
     root: string,
     query: string,
     extensions: string[],
+    excludeFolders: Set<string>,
     results: Array<{ file: string; line: number; preview: string }>,
     depth: number
   ): Promise<void> {
@@ -172,9 +175,10 @@ export class FileSystemService {
     catch { return; }
     for (const entry of entries) {
       if (this.shouldIgnore(entry.name, path.relative(root, path.join(dir, entry.name)))) continue;
+      if (entry.isDirectory() && excludeFolders.has(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        await this.searchDir(fullPath, root, query, extensions, results, depth + 1);
+        await this.searchDir(fullPath, root, query, extensions, excludeFolders, results, depth + 1);
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase().slice(1);
         if (extensions.length > 0 && !extensions.includes(ext)) continue;

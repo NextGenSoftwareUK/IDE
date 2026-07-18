@@ -63,7 +63,7 @@ export interface OASISElectronAPI {
   listTree: (dir?: string) => Promise<any[]>;
   readFile: (path: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
-  searchFiles: (query: string, dir?: string, extensions?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
+  searchFiles: (query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
   getRecents: () => Promise<string[]>;
   createFile: (filePath: string) => Promise<void>;
   createFolder: (folderPath: string) => Promise<void>;
@@ -179,8 +179,10 @@ export interface OASISElectronAPI {
   gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
   gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
   gitCreateBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
-  tabsGet: () => Promise<{ workspacePath: string; tabs: string[]; activeTab: string | null } | null>;
-  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null) => Promise<void>;
+  tabsGet: () => Promise<{ workspacePath: string; tabs: string[]; activeTab: string | null; meta?: Array<{ path: string; pinned?: boolean }> } | null>;
+  tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null, meta?: Array<{ path: string; pinned?: boolean }>) => Promise<void>;
+  keybindingsGet: () => Promise<Array<{ command: string; key: string }>>;
+  keybindingsSave: (bindings: Array<{ command: string; key: string }>) => Promise<void>;
 
   // ── Scripts runner ────────────────────────────────────────────────────────────
   scriptsRun: (dir: string, script: string) => Promise<string>;

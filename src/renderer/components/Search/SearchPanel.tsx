@@ -33,6 +33,7 @@ export const SearchPanel: React.FC = () => {
   const [replacement, setReplacement] = useState('');
   const [showReplace, setShowReplace] = useState(false);
   const [extFilter, setExtFilter] = useState('');
+  const [excludeFilter, setExcludeFilter] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
@@ -47,13 +48,16 @@ export const SearchPanel: React.FC = () => {
       const exts = extFilter.trim()
         ? extFilter.split(',').map((e) => e.trim().replace(/^\./, ''))
         : undefined;
-      const hits = await api().searchFiles?.(query, workspacePath ?? undefined, exts) ?? [];
+      const excl = excludeFilter.trim()
+        ? excludeFilter.split(',').map((e) => e.trim())
+        : undefined;
+      const hits = await api().searchFiles?.(query, workspacePath ?? undefined, exts, excl) ?? [];
       setResults(hits);
     } finally {
       setLoading(false);
       setSearched(true);
     }
-  }, [query, extFilter, workspacePath]);
+  }, [query, extFilter, excludeFilter, workspacePath]);
 
   const runReplaceAll = useCallback(async () => {
     if (!query.trim() || results.length === 0) return;
@@ -131,9 +135,18 @@ export const SearchPanel: React.FC = () => {
           <input
             type="text"
             className="search-input search-ext-input"
-            placeholder="Filter: ts,tsx,cs"
+            placeholder="Files: ts,tsx,cs"
             value={extFilter}
             onChange={(e) => setExtFilter(e.target.value)}
+            onKeyDown={onKeyDown}
+            spellCheck={false}
+          />
+          <input
+            type="text"
+            className="search-input search-ext-input"
+            placeholder="Exclude: dist,bin,obj"
+            value={excludeFilter}
+            onChange={(e) => setExcludeFilter(e.target.value)}
             onKeyDown={onKeyDown}
             spellCheck={false}
           />

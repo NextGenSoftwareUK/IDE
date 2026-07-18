@@ -83,3 +83,54 @@
   color: var(--text-dim, #4a5a78);
   font-style: italic;
 }
+
+.settings-keybinding-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-keybinding-row .settings-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-keybinding-btn {
+  background: var(--surface, #141926);
+  border: 1px solid var(--border, #222d42);
+  border-radius: 4px;
+  color: var(--text-primary, #c8d8ec);
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  padding: 3px 8px;
+  cursor: pointer;
+  min-width: 100px;
+  text-align: center;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+.settings-keybinding-btn:hover { border-color: var(--accent, #1f6feb); }
+.settings-keybinding-btn.capturing {
+  border-color: var(--accent, #1f6feb);
+  background: rgba(31, 111, 235, 0.1);
+  color: var(--accent, #1f6feb);
+  animation: kb-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes kb-pulse {
+  from { opacity: 1; }
+  to { opacity: 0.6; }
+}
+
+.settings-keybinding-reset {
+  background: none;
+  border: none;
+  color: var(--text-secondary, #6a80a8);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.settings-keybinding-reset:hover { color: var(--text-primary, #c8d8ec); }

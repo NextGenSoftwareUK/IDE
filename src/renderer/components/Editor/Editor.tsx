@@ -7,6 +7,43 @@ import { pushReferences } from '../References/ReferencesPanel';
 import { MonacoDiffViewer } from '../Git/MonacoDiffViewer';
 import './Editor.css';
 
+function parseKeyChord(key: string): number | null {
+  const parts = key.split('+');
+  let mod = 0;
+  let code = 0;
+  for (const p of parts) {
+    const part = p.trim();
+    if (part === 'Ctrl')  { mod |= monaco.KeyMod.CtrlCmd; continue; }
+    if (part === 'Shift') { mod |= monaco.KeyMod.Shift;   continue; }
+    if (part === 'Alt')   { mod |= monaco.KeyMod.Alt;     continue; }
+    if (part === 'Meta')  { mod |= monaco.KeyMod.WinCtrl; continue; }
+    // Single letter A-Z
+    if (part.length === 1 && part >= 'A' && part <= 'Z') {
+      const kc = (monaco.KeyCode as any)['Key' + part];
+      if (kc !== undefined) { code = kc; continue; }
+    }
+    // Function keys F1-F19
+    const fMatch = part.match(/^F(\d+)$/);
+    if (fMatch) {
+      const kc = (monaco.KeyCode as any)['F' + fMatch[1]];
+      if (kc !== undefined) { code = kc; continue; }
+    }
+    // Named keys
+    const named: Record<string, number> = {
+      Space: monaco.KeyCode.Space, Tab: monaco.KeyCode.Tab,
+      Enter: monaco.KeyCode.Enter, Escape: monaco.KeyCode.Escape,
+      Backspace: monaco.KeyCode.Backspace, Delete: monaco.KeyCode.Delete,
+      Up: monaco.KeyCode.UpArrow, Down: monaco.KeyCode.DownArrow,
+      Left: monaco.KeyCode.LeftArrow, Right: monaco.KeyCode.RightArrow,
+      Home: monaco.KeyCode.Home, End: monaco.KeyCode.End,
+    };
+    if (named[part] !== undefined) { code = named[part]; continue; }
+    return null; // unrecognised key
+  }
+  if (code === 0) return null;
+  return mod | code;
+}
+
 let themesRegistered = false;
 function ensureThemes() {
   if (themesRegistered) return;
@@ -582,6 +619,21 @@ export const Editor: React.FC<EditorProps> = ({
     if (!editor) return;
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { save(); });
   }, [save]);
+
+  // Apply user-remapped keybindings
+  useEffect(() => {
+    const editor = monacoEditorRef.current;
+    if (!editor || isRightPane) return;
+    window.electronAPI?.keybindingsGet?.().then((bindings) => {
+      if (!bindings?.length) return;
+      for (const { command, key } of bindings) {
+        const chord = parseKeyChord(key);
+        if (chord === null) continue;
+        editor.addCommand(chord, () => { editor.getAction(command)?.run(); });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const editor = monacoEditorRef.current;

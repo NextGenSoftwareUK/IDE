@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import './SettingsPanel.css';
 
 const URL_FIELDS: Array<{ key: string; label: string; placeholder: string; secret?: boolean }> = [
@@ -15,15 +15,38 @@ const URL_FIELDS: Array<{ key: string; label: string; placeholder: string; secre
   { key: 'OPENAI_API_KEY',        label: 'OpenAI API Key',         placeholder: '', secret: true },
 ];
 
+const REMAPPABLE_COMMANDS: Array<{ command: string; label: string; defaultKey: string }> = [
+  { command: 'editor.action.formatDocument',      label: 'Format Document',        defaultKey: 'Shift+Alt+F' },
+  { command: 'editor.action.triggerSuggest',      label: 'Trigger Suggestions',    defaultKey: 'Ctrl+Space' },
+  { command: 'editor.action.goToDeclaration',     label: 'Go to Definition',       defaultKey: 'F12' },
+  { command: 'editor.action.referenceSearch.trigger', label: 'Find References',    defaultKey: 'Shift+F12' },
+  { command: 'editor.action.rename',              label: 'Rename Symbol',          defaultKey: 'F2' },
+  { command: 'editor.action.commentLine',         label: 'Toggle Line Comment',    defaultKey: 'Ctrl+/' },
+  { command: 'editor.action.blockComment',        label: 'Toggle Block Comment',   defaultKey: 'Shift+Alt+A' },
+  { command: 'editor.action.duplicateSelection',  label: 'Duplicate Line',         defaultKey: 'Shift+Alt+Down' },
+  { command: 'editor.action.moveLinesUpAction',   label: 'Move Line Up',           defaultKey: 'Alt+Up' },
+  { command: 'editor.action.moveLinesDownAction', label: 'Move Line Down',         defaultKey: 'Alt+Down' },
+  { command: 'editor.action.selectAll',           label: 'Select All',             defaultKey: 'Ctrl+A' },
+  { command: 'editor.action.addSelectionToNextFindMatch', label: 'Add Next Occurrence', defaultKey: 'Ctrl+D' },
+];
+
 const api = () => window.electronAPI;
 
 export const SettingsPanel: React.FC = () => {
   const [values, setValues] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [keybindings, setKeybindings] = useState<Record<string, string>>({});
+  const [capturingCmd, setCapturingCmd] = useState<string | null>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api().settingsGet?.().then((v) => { setValues(v ?? {}); setLoading(false); });
+    api().keybindingsGet?.().then((bindings) => {
+      const map: Record<string, string> = {};
+      for (const b of (bindings ?? [])) map[b.command] = b.key;
+      setKeybindings(map);
+    });
   }, []);
 
   const handleChange = useCallback((key: string, val: string) => {
@@ -33,9 +56,27 @@ export const SettingsPanel: React.FC = () => {
 
   const save = useCallback(async () => {
     await api().settingsSave?.(values);
+    const bindings = Object.entries(keybindings).map(([command, key]) => ({ command, key }));
+    await api().keybindingsSave?.(bindings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-  }, [values]);
+  }, [values, keybindings]);
+
+  const captureKey = useCallback((e: React.KeyboardEvent, command: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.key === 'Escape') { setCapturingCmd(null); return; }
+    if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+    const parts: string[] = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.altKey) parts.push('Alt');
+    if (e.metaKey) parts.push('Meta');
+    const key = e.key.length === 1 ? e.key.toUpperCase() : e.key;
+    parts.push(key);
+    setKeybindings((prev) => ({ ...prev, [command]: parts.join('+') }));
+    setCapturingCmd(null);
+  }, []);
 
   if (loading) return <div className="settings-panel panel"><div className="settings-loading">Loading…</div></div>;
 
@@ -175,6 +216,37 @@ export const SettingsPanel: React.FC = () => {
             />
           </div>
         ))}
+
+        <p className="settings-section-label">Keyboard Shortcuts</p>
+        <p className="settings-hint">Click a binding to remap it. Press Escape to cancel.</p>
+        <div ref={captureRef}>
+          {REMAPPABLE_COMMANDS.map(({ command, label, defaultKey }) => {
+            const current = keybindings[command] ?? defaultKey;
+            const isCapturing = capturingCmd === command;
+            return (
+              <div key={command} className="settings-field settings-keybinding-row">
+                <label className="settings-label">{label}</label>
+                <button
+                  type="button"
+                  className={`settings-keybinding-btn${isCapturing ? ' capturing' : ''}`}
+                  onClick={() => setCapturingCmd(command)}
+                  onKeyDown={isCapturing ? (e) => captureKey(e, command) : undefined}
+                  title={isCapturing ? 'Press a key combination…' : 'Click to remap'}
+                >
+                  {isCapturing ? 'Press a key…' : current}
+                </button>
+                {keybindings[command] && keybindings[command] !== defaultKey && (
+                  <button
+                    type="button"
+                    className="settings-keybinding-reset"
+                    title="Reset to default"
+                    onClick={() => setKeybindings((prev) => { const n = { ...prev }; delete n[command]; return n; })}
+                  >↺</button>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
