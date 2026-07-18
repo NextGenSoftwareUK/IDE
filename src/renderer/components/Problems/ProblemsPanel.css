@@ -10,12 +10,44 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
+
+.prob-source-tabs {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.prob-source-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s;
+}
+.prob-source-tab:hover { color: var(--text-primary); }
+.prob-source-tab.active { border-color: var(--accent); color: var(--accent); }
+
+.prob-tab-badge {
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+.prob-tab-badge--error { color: #f85149; }
+.prob-tab-badge--warn  { color: #d29922; }
 
 .problems-counts {
   display: flex;

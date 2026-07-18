@@ -5,6 +5,7 @@ import { ScriptsPanel } from '../Scripts/ScriptsPanel';
 import { ReferencesPanel } from '../References/ReferencesPanel';
 import { TodoPanel } from '../TodoPanel/TodoPanel';
 import { useStatusBar } from '../../contexts/StatusBarContext';
+import { useWorkspace } from '../../contexts/WorkspaceContext';
 import './BottomPanel.css';
 
 type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'todos' | 'debug';
@@ -28,6 +29,7 @@ const TABS: { id: BottomTabId; label: string }[] = [
 export const BottomPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<BottomTabId>('terminal');
   const { errorCount, warningCount } = useStatusBar();
+  const { openFile } = useWorkspace();
   const [outputLog, setOutputLog] = useState<OutputEntry[]>([]);
   const [unreadOutput, setUnreadOutput] = useState(0);
   const outputEndRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,13 @@ export const BottomPanel: React.FC = () => {
     const handler = () => setActiveTab('references');
     window.addEventListener('oasis-show-references', handler);
     return () => window.removeEventListener('oasis-show-references', handler);
+  }, []);
+
+  // Focus Problems tab via event (Ctrl+Shift+M)
+  useEffect(() => {
+    const handler = () => setActiveTab('problems');
+    window.addEventListener('oasis-focus-problems', handler);
+    return () => window.removeEventListener('oasis-focus-problems', handler);
   }, []);
 
   // Subscribe to MCP tool events from the chat tool-use loop
@@ -112,7 +121,17 @@ export const BottomPanel: React.FC = () => {
             )}
           </div>
         )}
-        {activeTab === 'problems' && <ProblemsPanel />}
+        {activeTab === 'problems' && (
+          <ProblemsPanel
+            onOpenFile={(filePath, line) => {
+              openFile(filePath).then(() => {
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('oasis-goto-line', { detail: line }));
+                }, 150);
+              });
+            }}
+          />
+        )}
         {activeTab === 'references' && <ReferencesPanel />}
         {activeTab === 'todos' && <TodoPanel />}
         {activeTab === 'debug' && (

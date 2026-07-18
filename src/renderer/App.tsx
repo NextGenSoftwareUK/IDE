@@ -264,6 +264,9 @@ function AppInner() {
       } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         setShowSymbols((v) => !v);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('oasis-focus-problems'));
       } else if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'p') {
         e.preventDefault();
         setShowPalette((v) => !v);
