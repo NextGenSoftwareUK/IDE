@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact_glob: 'release/*.exe'
+          - os: ubuntu-latest
+            platform: linux
+            artifact_glob: 'release/*.AppImage'
+          - os: macos-latest
+            platform: mac
+            artifact_glob: 'release/*.dmg'
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm run rebuild:terminal
+
+      - name: Build renderer + main
+        run: npm run build
+
+      - name: Package (${{ matrix.platform }})
+        run: npm run package:${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact_glob }}
+          prerelease: true
+          name: OASIS IDE ${{ github.ref_name }} (Alpha)
+          body: |
+            ## OASIS IDE ${{ github.ref_name }} — Alpha Release
+
+            > ⚠️ **This is an alpha release.** Expect bugs, missing features, and breaking changes between versions. Not recommended for production use.
+
+            ### Downloads
+            | Platform | File |
+            |----------|------|
+            | Windows  | `OASIS-IDE-Setup-*.exe` |
+            | Linux    | `OASIS-IDE-*.AppImage` |
+            | macOS    | `OASIS-IDE-*.dmg` |
+
+            ### What's included
+            - AI-powered code editor built on Monaco
+            - Native OASIS Web4–Web10 integration
+            - MCP server connectivity
+            - TypeScript LSP (completions, diagnostics, go-to-definition, rename, references)
+            - Integrated terminal, git blame, split editor, and more
+
+            ### Requirements
+            - Windows 10+, Ubuntu 20.04+, or macOS 12+
+            - Internet connection for OASIS layer connectivity (optional for offline editing)
+
+            ### Known Alpha Limitations
+            - macOS builds are unsigned (Gatekeeper warning on first launch — right-click → Open)
+            - Linux AppImage requires `chmod +x` before running
+            - Auto-update not yet active
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
