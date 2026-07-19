@@ -7,6 +7,70 @@ import { pushReferences } from '../References/ReferencesPanel';
 import { MonacoDiffViewer } from '../Git/MonacoDiffViewer';
 import './Editor.css';
 
+// ── Git gutter diff helpers ──────────────────────────────────────────────────
+
+function lcsTable(a: string[], b: string[]): number[][] {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  return dp;
+}
+
+type LineOp = { type: 'equal' | 'add' | 'del' | 'mod'; newLine?: number };
+
+function diffLines(oldLines: string[], newLines: string[]): LineOp[] {
+  // Cap size to avoid O(n²) freeze on huge files
+  if (oldLines.length > 3000 || newLines.length > 3000) return [];
+  const dp = lcsTable(oldLines, newLines);
+  const ops: LineOp[] = [];
+  let i = oldLines.length, j = newLines.length;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      ops.push({ type: 'equal', newLine: j }); i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.push({ type: 'add', newLine: j }); j--;
+    } else {
+      ops.push({ type: 'del' }); i--;
+    }
+  }
+  ops.reverse();
+
+  // Merge adjacent del+add into mod
+  const merged: LineOp[] = [];
+  for (let k = 0; k < ops.length; k++) {
+    if (ops[k].type === 'del' && ops[k + 1]?.type === 'add') {
+      merged.push({ type: 'mod', newLine: ops[k + 1].newLine });
+      k++;
+    } else {
+      merged.push(ops[k]);
+    }
+  }
+  return merged;
+}
+
+function computeGutterDecorations(oldLines: string[], newLines: string[]): monaco.editor.IModelDeltaDecoration[] {
+  const ops = diffLines(oldLines, newLines);
+  const result: monaco.editor.IModelDeltaDecoration[] = [];
+  for (const op of ops) {
+    if (op.type === 'equal' || !op.newLine) continue;
+    const line = op.newLine;
+    result.push({
+      range: new monaco.Range(line, 1, line, 1),
+      options: {
+        isWholeLine: false,
+        linesDecorationsClassName: op.type === 'add' ? 'git-gutter-add'
+          : op.type === 'mod' ? 'git-gutter-mod'
+          : 'git-gutter-del',
+      },
+    });
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function parseKeyChord(key: string): number | null {
   const parts = key.split('+');
   let mod = 0;
@@ -405,6 +469,11 @@ export const Editor: React.FC<EditorProps> = ({
 
   const docVersions = useRef<Map<string, number>>(new Map());
 
+  // ── Git gutter decorations ───────────────────────────────────────────────
+  const gutterDecorations = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+  const gutterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headContentCache = useRef<Map<string, string>>(new Map());
+
   // ── Inline diff panel ────────────────────────────────────────────────────
   const [diffOpen, setDiffOpen] = React.useState(false);
   const [diffSaved, setDiffSaved] = React.useState('');
@@ -709,6 +778,45 @@ export const Editor: React.FC<EditorProps> = ({
       model.pushEditOperations([], [{ range: model.getFullModelRange(), text: fileContent }], () => null);
     }
   }, [activeTabPath, fileContent]);
+
+  // Git gutter decorations — recompute when file or content changes (debounced)
+  useEffect(() => {
+    if (isRightPane || !activeTabPath || !workspacePath) return;
+    const editor = monacoEditorRef.current;
+    if (!editor) return;
+
+    if (gutterTimerRef.current) clearTimeout(gutterTimerRef.current);
+    gutterTimerRef.current = setTimeout(async () => {
+      const api = window.electronAPI;
+      if (!api?.gitFileOriginal) return;
+
+      let headText = headContentCache.current.get(activeTabPath);
+      if (headText === undefined) {
+        try {
+          headText = await api.gitFileOriginal(workspacePath, activeTabPath);
+          headContentCache.current.set(activeTabPath, headText ?? '');
+        } catch {
+          headContentCache.current.set(activeTabPath, '');
+          return;
+        }
+      }
+      if (!headText) return;
+
+      const currentLines = fileContent.split('\n');
+      const headLines = headText.split('\n');
+      const decorations = computeGutterDecorations(headLines, currentLines);
+
+      if (!gutterDecorations.current) {
+        gutterDecorations.current = editor.createDecorationsCollection([]);
+      }
+      gutterDecorations.current.set(decorations);
+    }, 600);
+  }, [activeTabPath, fileContent, workspacePath, isRightPane]);
+
+  // Clear head cache when workspace changes (so stale HEAD content isn't reused)
+  useEffect(() => {
+    headContentCache.current.clear();
+  }, [workspacePath]);
 
   // Listen to model content changes, push to context + LSP
   useEffect(() => {
