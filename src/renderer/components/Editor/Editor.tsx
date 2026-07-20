@@ -228,6 +228,16 @@ function lspKindToMonaco(kind?: number): monaco.languages.CompletionItemKind {
 
 let lspProvidersRegistered = false;
 
+// Module-level blame cache: filePath → per-line blame entries
+const blameCache = new Map<string, Array<{ line: number; hash: string; author: string; summary: string; timestamp: number }>>();
+const blameFetching = new Set<string>();
+
+function uriToFilePath(uri: string): string {
+  try {
+    return decodeURIComponent(uri.replace(/^file:\/\/\/?/, '').replace(/\//g, '\\'));
+  } catch { return uri; }
+}
+
 function registerLspProviders() {
   if (lspProvidersRegistered) return;
   lspProvidersRegistered = true;
@@ -276,6 +286,45 @@ function registerLspProviders() {
           : [{ value: result.contents.value ?? result.contents }];
         return { contents };
       } catch { return null; }
+    },
+  });
+
+  // Git blame hover — all languages
+  monaco.languages.registerHoverProvider('*', {
+    async provideHover(model, position) {
+      const api = window.electronAPI;
+      if (!api?.gitBlame || !api?.getWorkspacePath) return null;
+      const filePath = uriToFilePath(model.uri.toString());
+      if (!filePath) return null;
+
+      if (!blameCache.has(filePath) && !blameFetching.has(filePath)) {
+        blameFetching.add(filePath);
+        try {
+          const wsPath = await api.getWorkspacePath();
+          if (!wsPath) return null;
+          const entries = await api.gitBlame(wsPath, filePath);
+          blameCache.set(filePath, entries ?? []);
+        } catch {
+          blameCache.set(filePath, []);
+        } finally {
+          blameFetching.delete(filePath);
+        }
+      }
+
+      const entries = blameCache.get(filePath);
+      if (!entries?.length) return null;
+      const entry = entries.find((e) => e.line === position.lineNumber);
+      if (!entry || entry.hash === '0000000000000000000000000000000000000000') return null;
+
+      const date = new Date(entry.timestamp * 1000).toLocaleDateString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+      });
+      const shortHash = entry.hash.slice(0, 7);
+      const value = `$(git-commit) \`${shortHash}\` · **${entry.author}**, ${date}\n\n${entry.summary}`;
+      return {
+        contents: [{ value, isTrusted: false, supportThemeIcons: true }],
+        range: new monaco.Range(position.lineNumber, 1, position.lineNumber, model.getLineMaxColumn(position.lineNumber)),
+      };
     },
   });
 
@@ -816,7 +865,15 @@ export const Editor: React.FC<EditorProps> = ({
   // Clear head cache when workspace changes (so stale HEAD content isn't reused)
   useEffect(() => {
     headContentCache.current.clear();
+    blameCache.clear();
   }, [workspacePath]);
+
+  // Invalidate blame cache for a file when it's saved
+  useEffect(() => {
+    if (!activeTabPath || dirty) return;
+    blameCache.delete(activeTabPath);
+    headContentCache.current.delete(activeTabPath);
+  }, [dirty, activeTabPath]);
 
   // Listen to model content changes, push to context + LSP
   useEffect(() => {
