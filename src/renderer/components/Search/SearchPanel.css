@@ -13,6 +13,60 @@
   border-bottom: 1px solid var(--border);
 }
 
+.search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-input-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-input-error {
+  border-color: #f85149 !important;
+}
+
+.search-toggles {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.search-toggle-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-secondary, #6a80a8);
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  padding: 3px 5px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.search-toggle-btn:hover {
+  color: var(--text-primary, #c8d8ec);
+  background: rgba(255,255,255,0.06);
+}
+.search-toggle-btn.active {
+  color: var(--accent, #58a6ff);
+  border-color: var(--accent, #58a6ff);
+  background: rgba(31,111,235,0.15);
+}
+
+.search-regex-error {
+  font-size: 10px;
+  color: #f85149;
+  margin: 0;
+  padding: 0 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .search-input {
   background: var(--surface, #141926);
   border: 1px solid var(--border, #222d42);

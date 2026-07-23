@@ -34,14 +34,26 @@ export const SearchPanel: React.FC = () => {
   const [showReplace, setShowReplace] = useState(false);
   const [extFilter, setExtFilter] = useState('');
   const [excludeFilter, setExcludeFilter] = useState('');
+  const [useRegex, setUseRegex] = useState(false);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [wholeWord, setWholeWord] = useState(false);
+  const [regexError, setRegexError] = useState<string | null>(null);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [replacing, setReplacing] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Validate regex as user types
+  const validateRegex = useCallback((q: string) => {
+    if (!useRegex || !q) { setRegexError(null); return; }
+    try { new RegExp(q); setRegexError(null); }
+    catch (e: any) { setRegexError(e.message); }
+  }, [useRegex]);
+
   const runSearch = useCallback(async () => {
     if (!query.trim()) return;
+    if (regexError) return;
     setLoading(true);
     setSearched(false);
     try {
@@ -51,22 +63,25 @@ export const SearchPanel: React.FC = () => {
       const excl = excludeFilter.trim()
         ? excludeFilter.split(',').map((e) => e.trim())
         : undefined;
-      const hits = await api().searchFiles?.(query, workspacePath ?? undefined, exts, excl) ?? [];
+      const hits = await api().searchFiles?.(query, workspacePath ?? undefined, exts, excl, useRegex, caseSensitive, wholeWord) ?? [];
       setResults(hits);
     } finally {
       setLoading(false);
       setSearched(true);
     }
-  }, [query, extFilter, excludeFilter, workspacePath]);
+  }, [query, extFilter, excludeFilter, useRegex, caseSensitive, wholeWord, regexError, workspacePath]);
 
   const runReplaceAll = useCallback(async () => {
-    if (!query.trim() || results.length === 0) return;
+    if (!query.trim() || results.length === 0 || regexError) return;
     setReplacing(true);
     try {
       const uniqueFiles = [...new Set(results.map((r) => r.file))];
       let totalCount = 0;
       let fileCount = 0;
-      const pattern = new RegExp(escapeRegex(query), 'g');
+      const flags = caseSensitive ? 'g' : 'gi';
+      const src = useRegex ? query : escapeRegex(query);
+      const wrapped = wholeWord ? `\\b${src}\\b` : src;
+      const pattern = new RegExp(wrapped, flags);
 
       for (const filePath of uniqueFiles) {
         try {
@@ -88,7 +103,7 @@ export const SearchPanel: React.FC = () => {
     } finally {
       setReplacing(false);
     }
-  }, [query, replacement, results, runSearch, success, toastError]);
+  }, [query, replacement, results, runSearch, success, toastError, useRegex, caseSensitive, wholeWord, regexError]);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') runSearch();
@@ -108,17 +123,40 @@ export const SearchPanel: React.FC = () => {
         </button>
       </div>
       <div className="search-bar-area">
-        <input
-          ref={inputRef}
-          type="text"
-          className="search-input"
-          placeholder="Search in workspace…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          spellCheck={false}
-          autoComplete="off"
-        />
+        <div className="search-input-row">
+          <input
+            ref={inputRef}
+            type="text"
+            className={`search-input search-input-main${regexError ? ' search-input-error' : ''}`}
+            placeholder="Search in workspace…"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); validateRegex(e.target.value); }}
+            onKeyDown={onKeyDown}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <div className="search-toggles">
+            <button
+              type="button"
+              className={`search-toggle-btn${caseSensitive ? ' active' : ''}`}
+              title="Match case (Alt+C)"
+              onClick={() => setCaseSensitive((v) => !v)}
+            >Aa</button>
+            <button
+              type="button"
+              className={`search-toggle-btn${wholeWord ? ' active' : ''}`}
+              title="Match whole word (Alt+W)"
+              onClick={() => setWholeWord((v) => !v)}
+            >\b</button>
+            <button
+              type="button"
+              className={`search-toggle-btn${useRegex ? ' active' : ''}`}
+              title="Use regular expression (Alt+R)"
+              onClick={() => { setUseRegex((v) => !v); setRegexError(null); }}
+            >.*</button>
+          </div>
+        </div>
+        {regexError && <p className="search-regex-error">Invalid regex: {regexError}</p>}
         {showReplace && (
           <input
             type="text"
@@ -154,7 +192,7 @@ export const SearchPanel: React.FC = () => {
             type="button"
             className="search-btn"
             onClick={runSearch}
-            disabled={loading || !query.trim()}
+            disabled={loading || !query.trim() || !!regexError}
           >
             {loading ? '…' : 'Search'}
           </button>

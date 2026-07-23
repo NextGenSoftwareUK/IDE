@@ -151,19 +151,34 @@ export class FileSystemService {
     query: string,
     dir: string,
     extensions?: string[],
-    excludeFolders?: string[]
+    excludeFolders?: string[],
+    useRegex?: boolean,
+    caseSensitive?: boolean,
+    wholeWord?: boolean
   ): Promise<Array<{ file: string; line: number; preview: string }>> {
     const results: Array<{ file: string; line: number; preview: string }> = [];
-    const queryLower = query.toLowerCase();
     const excludeSet = new Set([...(excludeFolders ?? [])]);
-    await this.searchDir(dir, dir, queryLower, extensions ?? [], excludeSet, results, 0);
+
+    let pattern: RegExp;
+    try {
+      const flags = caseSensitive ? 'g' : 'gi';
+      const source = useRegex
+        ? query
+        : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const wrapped = wholeWord ? `\\b${source}\\b` : source;
+      pattern = new RegExp(wrapped, flags);
+    } catch {
+      return []; // invalid regex
+    }
+
+    await this.searchDir(dir, dir, pattern, extensions ?? [], excludeSet, results, 0);
     return results.slice(0, 500);
   }
 
   private async searchDir(
     dir: string,
     root: string,
-    query: string,
+    pattern: RegExp,
     extensions: string[],
     excludeFolders: Set<string>,
     results: Array<{ file: string; line: number; preview: string }>,
@@ -178,7 +193,7 @@ export class FileSystemService {
       if (entry.isDirectory() && excludeFolders.has(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        await this.searchDir(fullPath, root, query, extensions, excludeFolders, results, depth + 1);
+        await this.searchDir(fullPath, root, pattern, extensions, excludeFolders, results, depth + 1);
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase().slice(1);
         if (extensions.length > 0 && !extensions.includes(ext)) continue;
@@ -187,7 +202,8 @@ export class FileSystemService {
           const lines = text.split('\n');
           lines.forEach((lineText, idx) => {
             if (results.length >= 500) return;
-            if (lineText.toLowerCase().includes(query)) {
+            pattern.lastIndex = 0;
+            if (pattern.test(lineText)) {
               results.push({ file: fullPath, line: idx + 1, preview: lineText.trim().slice(0, 200) });
             }
           });

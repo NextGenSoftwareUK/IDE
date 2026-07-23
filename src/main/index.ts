@@ -573,10 +573,10 @@ ipcMain.handle('settings:save', async (_, settings: Record<string, string>) => {
 
 // ── File search ───────────────────────────────────────────────────────────────
 
-ipcMain.handle('fs:search-files', async (_, query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) => {
+ipcMain.handle('fs:search-files', async (_, query: string, dir?: string, extensions?: string[], excludeFolders?: string[], useRegex?: boolean, caseSensitive?: boolean, wholeWord?: boolean) => {
   const root = dir ?? fileSystemService.getWorkspacePath();
   if (!root) return [];
-  return fileSystemService.searchFiles(query, root, extensions, excludeFolders);
+  return fileSystemService.searchFiles(query, root, extensions, excludeFolders, useRegex, caseSensitive, wholeWord);
 });
 
 // ── Git ───────────────────────────────────────────────────────────────────────
