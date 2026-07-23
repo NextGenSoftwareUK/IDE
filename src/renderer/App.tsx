@@ -64,6 +64,7 @@ export interface OASISElectronAPI {
   readFile: (path: string) => Promise<string>;
   writeFile: (path: string, content: string) => Promise<void>;
   searchFiles: (query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) => Promise<Array<{ file: string; line: number; preview: string }>>;
+  readFileBase64: (path: string) => Promise<string>;
   getRecents: () => Promise<string[]>;
   createFile: (filePath: string) => Promise<void>;
   createFolder: (folderPath: string) => Promise<void>;

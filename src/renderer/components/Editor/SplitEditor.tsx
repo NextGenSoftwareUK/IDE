@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Editor } from './Editor';
 import { MarkdownPreview } from '../MarkdownPreview/MarkdownPreview';
+import { ImagePreview, isImagePath } from '../ImagePreview/ImagePreview';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import './SplitEditor.css';
 
@@ -11,6 +12,7 @@ export const SplitEditor: React.FC = () => {
   const { tabs, activeTabPath, setActiveTab } = useWorkspace();
 
   const isMarkdown = activeTabPath?.match(/\.(md|mdx|markdown)$/i) != null;
+  const isImage = activeTabPath ? isImagePath(activeTabPath) : false;
 
   // Auto-close preview when switching away from a markdown file
   useEffect(() => {
@@ -91,6 +93,8 @@ export const SplitEditor: React.FC = () => {
             <MarkdownPreview onClose={() => setMdPreview(false)} />
           </Panel>
         </PanelGroup>
+      ) : isImage && activeTabPath ? (
+        <ImagePreview filePath={activeTabPath} />
       ) : (
         <Editor paneId="left" className="split-editor-single" />
       )}

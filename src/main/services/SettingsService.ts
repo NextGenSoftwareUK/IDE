@@ -68,13 +68,28 @@ export class SettingsService {
     return path.join(app.getPath('userData'), 'oasis-ide-tabs.json');
   }
 
-  getPersistedTabs(): { workspacePath: string; tabs: string[]; activeTab: string | null } | null {
+  getPersistedTabs(): { workspacePath: string; tabs: string[]; activeTab: string | null; meta?: Array<{ path: string; pinned?: boolean }> } | null {
     try {
       return JSON.parse(fs.readFileSync(this.tabsFile, 'utf8'));
     } catch { return null; }
   }
 
-  savePersistedTabs(workspacePath: string, tabs: string[], activeTab: string | null): void {
-    fs.writeFileSync(this.tabsFile, JSON.stringify({ workspacePath, tabs, activeTab }), 'utf8');
+  savePersistedTabs(workspacePath: string, tabs: string[], activeTab: string | null, meta?: Array<{ path: string; pinned?: boolean }>): void {
+    fs.writeFileSync(this.tabsFile, JSON.stringify({ workspacePath, tabs, activeTab, meta }), 'utf8');
+  }
+
+  private get keybindingsFile(): string {
+    return path.join(app.getPath('userData'), 'oasis-ide-keybindings.json');
+  }
+
+  getKeybindings(): Array<{ command: string; key: string }> {
+    try {
+      return JSON.parse(fs.readFileSync(this.keybindingsFile, 'utf8'));
+    } catch { return []; }
+  }
+
+  saveKeybindings(bindings: Array<{ command: string; key: string }>): void {
+    fs.mkdirSync(path.dirname(this.keybindingsFile), { recursive: true });
+    fs.writeFileSync(this.keybindingsFile, JSON.stringify(bindings, null, 2), 'utf8');
   }
 }

@@ -4,11 +4,12 @@ import { ProblemsPanel } from '../Problems/ProblemsPanel';
 import { ScriptsPanel } from '../Scripts/ScriptsPanel';
 import { ReferencesPanel } from '../References/ReferencesPanel';
 import { TodoPanel } from '../TodoPanel/TodoPanel';
+import { RestClient } from '../RestClient/RestClient';
 import { useStatusBar } from '../../contexts/StatusBarContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import './BottomPanel.css';
 
-type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'todos' | 'debug';
+type BottomTabId = 'terminal' | 'scripts' | 'output' | 'problems' | 'references' | 'todos' | 'debug' | 'rest';
 
 interface OutputEntry {
   ts: number;
@@ -24,6 +25,7 @@ const TABS: { id: BottomTabId; label: string }[] = [
   { id: 'references', label: 'References' },
   { id: 'todos', label: 'TODOs' },
   { id: 'debug', label: 'Debug Console' },
+  { id: 'rest', label: 'REST Client' },
 ];
 
 export const BottomPanel: React.FC = () => {
@@ -134,6 +136,7 @@ export const BottomPanel: React.FC = () => {
         )}
         {activeTab === 'references' && <ReferencesPanel />}
         {activeTab === 'todos' && <TodoPanel />}
+        {activeTab === 'rest' && <RestClient />}
         {activeTab === 'debug' && (
           <div className="bottom-panel-placeholder">
             <p>Debug console output will appear here.</p>

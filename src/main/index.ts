@@ -270,6 +270,11 @@ ipcMain.handle('fs:list-tree', async (_, dir?: string) => {
   catch { return []; }
 });
 ipcMain.handle('fs:read-file', (_, filePath: string) => fileSystemService.readFile(filePath));
+ipcMain.handle('fs:read-file-base64', async (_, filePath: string) => {
+  const { readFile } = await import('fs/promises');
+  const buf = await readFile(filePath);
+  return buf.toString('base64');
+});
 ipcMain.handle('fs:write-file', (_, filePath: string, content: string) =>
   fileSystemService.writeFile(filePath, content));
 
@@ -568,10 +573,10 @@ ipcMain.handle('settings:save', async (_, settings: Record<string, string>) => {
 
 // ── File search ───────────────────────────────────────────────────────────────
 
-ipcMain.handle('fs:search-files', async (_, query: string, dir?: string, extensions?: string[]) => {
+ipcMain.handle('fs:search-files', async (_, query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) => {
   const root = dir ?? fileSystemService.getWorkspacePath();
   if (!root) return [];
-  return fileSystemService.searchFiles(query, root, extensions);
+  return fileSystemService.searchFiles(query, root, extensions, excludeFolders);
 });
 
 // ── Git ───────────────────────────────────────────────────────────────────────
@@ -589,8 +594,13 @@ ipcMain.handle('git:create-branch', async (_, dir: string, branch: string) => gi
 
 // ── Tab persistence ───────────────────────────────────────────────────────────
 ipcMain.handle('tabs:get', () => settingsService.getPersistedTabs());
-ipcMain.handle('tabs:save', (_, workspacePath: string, tabs: string[], activeTab: string | null) =>
-  settingsService.savePersistedTabs(workspacePath, tabs, activeTab));
+ipcMain.handle('tabs:save', (_, workspacePath: string, tabs: string[], activeTab: string | null, meta?: Array<{ path: string; pinned?: boolean }>) =>
+  settingsService.savePersistedTabs(workspacePath, tabs, activeTab, meta));
+
+// ── Keybindings ───────────────────────────────────────────────────────────────
+ipcMain.handle('keybindings:get', () => settingsService.getKeybindings());
+ipcMain.handle('keybindings:save', (_, bindings: Array<{ command: string; key: string }>) =>
+  settingsService.saveKeybindings(bindings));
 
 // ── STAR ODK wizard ───────────────────────────────────────────────────────────
 

@@ -178,6 +178,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── File search ───────────────────────────────────────────────────────────
   searchFiles: (query: string, dir?: string, extensions?: string[], excludeFolders?: string[]) =>
     ipcRenderer.invoke('fs:search-files', query, dir, extensions, excludeFolders),
+  readFileBase64: (path: string) => ipcRenderer.invoke('fs:read-file-base64', path),
   getRecents: () => ipcRenderer.invoke('fs:get-recents'),
   createFile: (filePath: string) => ipcRenderer.invoke('fs:create-file', filePath),
   createFolder: (folderPath: string) => ipcRenderer.invoke('fs:create-folder', folderPath),
