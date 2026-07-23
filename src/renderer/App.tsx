@@ -180,6 +180,9 @@ export interface OASISElectronAPI {
   gitListBranches: (dir: string) => Promise<Array<{ name: string; current: boolean }>>;
   gitCheckout: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
   gitCreateBranch: (dir: string, branch: string) => Promise<{ success: boolean; error?: string }>;
+  gitPush: (dir: string, remote?: string, branch?: string) => Promise<{ success: boolean; output: string; error?: string }>;
+  gitPull: (dir: string, remote?: string, branch?: string) => Promise<{ success: boolean; output: string; error?: string }>;
+  gitRemoteUrl: (dir: string) => Promise<string>;
   tabsGet: () => Promise<{ workspacePath: string; tabs: string[]; activeTab: string | null; meta?: Array<{ path: string; pinned?: boolean }> } | null>;
   tabsSave: (workspacePath: string, tabs: string[], activeTab: string | null, meta?: Array<{ path: string; pinned?: boolean }>) => Promise<void>;
   keybindingsGet: () => Promise<Array<{ command: string; key: string }>>;

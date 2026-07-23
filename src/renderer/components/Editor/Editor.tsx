@@ -738,6 +738,24 @@ export const Editor: React.FC<EditorProps> = ({
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { save(); });
   }, [save]);
 
+  // Format-on-save: triggered by WorkspaceContext before writing
+  useEffect(() => {
+    if (isRightPane) return;
+    const handler = async (e: Event) => {
+      const path = (e as CustomEvent<string>).detail;
+      if (path !== activeTabPath) { window.dispatchEvent(new Event('oasis-format-done')); return; }
+      const editor = monacoEditorRef.current;
+      if (!editor) { window.dispatchEvent(new Event('oasis-format-done')); return; }
+      try {
+        await editor.getAction('editor.action.formatDocument')?.run();
+      } finally {
+        window.dispatchEvent(new Event('oasis-format-done'));
+      }
+    };
+    window.addEventListener('oasis-format-before-save', handler);
+    return () => window.removeEventListener('oasis-format-before-save', handler);
+  }, [activeTabPath, isRightPane]);
+
   // Apply user-remapped keybindings
   useEffect(() => {
     const editor = monacoEditorRef.current;

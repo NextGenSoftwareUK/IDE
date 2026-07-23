@@ -7,6 +7,7 @@ const RECENTS_FILE = path.join(app.getPath('userData'), 'oasis-ide-recents.json'
 const MAX_RECENTS = 8;
 
 const DEFAULTS: Record<string, string> = {
+  EDITOR_FORMAT_ON_SAVE: 'false',
   EDITOR_AUTO_SAVE: 'off', // 'off' | 'afterDelay'
   EDITOR_AUTO_SAVE_DELAY: '1500',
   EDITOR_THEME: 'oasis-dark',

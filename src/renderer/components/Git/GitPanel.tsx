@@ -46,17 +46,21 @@ export const GitPanel: React.FC = () => {
   const [newBranchName, setNewBranchName] = useState('');
   const [branchOp, setBranchOp] = useState(false);
   const [showNewBranch, setShowNewBranch] = useState(false);
+  const [hasRemote, setHasRemote] = useState(false);
+  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
 
   const dir = workspacePath;
 
   const refreshBranches = useCallback(async () => {
     if (!dir) return;
-    const [b, bl] = await Promise.all([
+    const [b, bl, remote] = await Promise.all([
       api().gitCurrentBranch?.(dir) ?? Promise.resolve(''),
       api().gitListBranches?.(dir) ?? Promise.resolve([]),
+      api().gitRemoteUrl?.(dir) ?? Promise.resolve(''),
     ]);
     setCurrentBranch(b ?? '');
     setBranches(bl ?? []);
+    setHasRemote(!!(remote ?? '').trim());
   }, [dir]);
 
   const refresh = useCallback(async () => {
@@ -134,6 +138,26 @@ export const GitPanel: React.FC = () => {
     } finally { setBranchOp(false); }
   }, [dir, currentBranch, refresh]);
 
+  const doPush = useCallback(async () => {
+    if (!dir) return;
+    setSyncing('push');
+    try {
+      const r = await api().gitPush?.(dir, 'origin', currentBranch);
+      if (r?.success) { success(`Pushed to origin/${currentBranch}`); await refresh(); }
+      else toastError(r?.error ?? 'Push failed');
+    } finally { setSyncing(null); }
+  }, [dir, currentBranch, refresh]);
+
+  const doPull = useCallback(async () => {
+    if (!dir) return;
+    setSyncing('pull');
+    try {
+      const r = await api().gitPull?.(dir, 'origin', currentBranch);
+      if (r?.success) { success(`Pulled from origin/${currentBranch}`); await refresh(); }
+      else toastError(r?.error ?? 'Pull failed');
+    } finally { setSyncing(null); }
+  }, [dir, currentBranch, refresh]);
+
   const doCreateBranch = useCallback(async () => {
     if (!dir || !newBranchName.trim()) return;
     setBranchOp(true);
@@ -199,6 +223,24 @@ export const GitPanel: React.FC = () => {
           title="New branch"
           onClick={() => setShowNewBranch((v) => !v)}
         >+</button>
+        {hasRemote && (
+          <>
+            <button
+              type="button"
+              className="git-sync-btn"
+              title={`Pull from origin/${currentBranch}`}
+              disabled={!!syncing}
+              onClick={doPull}
+            >{syncing === 'pull' ? '⟳' : '↓'}</button>
+            <button
+              type="button"
+              className="git-sync-btn"
+              title={`Push to origin/${currentBranch}`}
+              disabled={!!syncing}
+              onClick={doPush}
+            >{syncing === 'push' ? '⟳' : '↑'}</button>
+          </>
+        )}
       </div>
       {showNewBranch && (
         <div className="git-new-branch-row">

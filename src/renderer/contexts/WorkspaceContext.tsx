@@ -54,7 +54,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [activeTabPath, setActiveTabPathState] = useState<string | null>(null);
   const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoSaveSettingsRef = useRef<{ mode: string; delay: number }>({ mode: 'off', delay: 1500 });
+  const autoSaveSettingsRef = useRef<{ mode: string; delay: number; formatOnSave: boolean }>({ mode: 'off', delay: 1500, formatOnSave: false });
   // Tab navigation history (ref-based to avoid stale closures)
   const tabsRef = useRef<EditorTab[]>([]);
   const tabHistoryRef = useRef<string[]>([]);
@@ -68,6 +68,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         autoSaveSettingsRef.current = {
           mode: s?.EDITOR_AUTO_SAVE ?? 'off',
           delay: parseInt(s?.EDITOR_AUTO_SAVE_DELAY ?? '1500', 10) || 1500,
+          formatOnSave: s?.EDITOR_FORMAT_ON_SAVE === 'true',
         };
       });
     };
@@ -347,7 +348,20 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     const tab = tabs.find((t) => t.path === path);
     if (!tab || !window.electronAPI?.writeFile) return;
     try {
-      await window.electronAPI.writeFile(path, tab.content);
+      // If format-on-save is enabled, signal Editor to format first (Editor updates content via setFileContent)
+      if (autoSaveSettingsRef.current.formatOnSave) {
+        await new Promise<void>((resolve) => {
+          const handler = () => { window.removeEventListener('oasis-format-done', handler); resolve(); };
+          window.addEventListener('oasis-format-done', handler);
+          window.dispatchEvent(new CustomEvent('oasis-format-before-save', { detail: path }));
+          // Fallback if editor doesn't respond in 2s
+          setTimeout(() => { window.removeEventListener('oasis-format-done', handler); resolve(); }, 2000);
+        });
+      }
+      // Re-read latest tab content after potential format
+      const latest = tabsRef.current.find((t) => t.path === path);
+      const content = latest?.content ?? tab.content;
+      await window.electronAPI.writeFile(path, content);
       setTabs((prev) =>
         prev.map((t) => t.path === path ? { ...t, savedContent: t.content } : t)
       );

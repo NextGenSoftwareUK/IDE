@@ -136,6 +136,33 @@ export class GitService {
       return result;
     } catch { return []; }
   }
+
+  async push(dir: string, remote = 'origin', branch?: string): Promise<{ success: boolean; output: string; error?: string }> {
+    try {
+      const args = ['push', remote];
+      if (branch) args.push(branch);
+      const output = await git(dir, args);
+      return { success: true, output };
+    } catch (e: any) {
+      return { success: false, output: '', error: e?.stderr ?? e?.message ?? 'Push failed' };
+    }
+  }
+
+  async pull(dir: string, remote = 'origin', branch?: string): Promise<{ success: boolean; output: string; error?: string }> {
+    try {
+      const args = ['pull', remote];
+      if (branch) args.push(branch);
+      const output = await git(dir, args);
+      return { success: true, output };
+    } catch (e: any) {
+      return { success: false, output: '', error: e?.stderr ?? e?.message ?? 'Pull failed' };
+    }
+  }
+
+  async getRemoteUrl(dir: string): Promise<string> {
+    try { return await git(dir, ['remote', 'get-url', 'origin']); }
+    catch { return ''; }
+  }
 }
 
 export interface BlameEntry {

@@ -591,6 +591,9 @@ ipcMain.handle('git:current-branch', async (_, dir: string) => gitService.curren
 ipcMain.handle('git:list-branches', async (_, dir: string) => gitService.listBranches(dir));
 ipcMain.handle('git:checkout', async (_, dir: string, branch: string) => gitService.checkoutBranch(dir, branch));
 ipcMain.handle('git:create-branch', async (_, dir: string, branch: string) => gitService.createBranch(dir, branch));
+ipcMain.handle('git:push', async (_, dir: string, remote?: string, branch?: string) => gitService.push(dir, remote, branch));
+ipcMain.handle('git:pull', async (_, dir: string, remote?: string, branch?: string) => gitService.pull(dir, remote, branch));
+ipcMain.handle('git:remote-url', async (_, dir: string) => gitService.getRemoteUrl(dir));
 
 // ── Tab persistence ───────────────────────────────────────────────────────────
 ipcMain.handle('tabs:get', () => settingsService.getPersistedTabs());

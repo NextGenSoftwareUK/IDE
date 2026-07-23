@@ -237,6 +237,24 @@
 
 .git-new-branch-btn:hover { border-color: #3b82f6; color: #7dd3fc; }
 
+.git-sync-btn {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid #1a3a5c;
+  border-radius: 4px;
+  color: #a8bfd8;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+.git-sync-btn:hover:not(:disabled) { border-color: #3b82f6; color: #7dd3fc; }
+.git-sync-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .git-new-branch-row {
   display: flex;
   gap: 6px;

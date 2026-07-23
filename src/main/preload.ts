@@ -202,6 +202,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   gitListBranches: (dir: string) => ipcRenderer.invoke('git:list-branches', dir),
   gitCheckout: (dir: string, branch: string) => ipcRenderer.invoke('git:checkout', dir, branch),
   gitCreateBranch: (dir: string, branch: string) => ipcRenderer.invoke('git:create-branch', dir, branch),
+  gitPush: (dir: string, remote?: string, branch?: string) => ipcRenderer.invoke('git:push', dir, remote, branch),
+  gitPull: (dir: string, remote?: string, branch?: string) => ipcRenderer.invoke('git:pull', dir, remote, branch),
+  gitRemoteUrl: (dir: string) => ipcRenderer.invoke('git:remote-url', dir),
 
   // ── Tab persistence ─────────────────────────────────────────────────────
   tabsGet: () => ipcRenderer.invoke('tabs:get'),

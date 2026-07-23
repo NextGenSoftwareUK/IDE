@@ -128,6 +128,18 @@ export const SettingsPanel: React.FC = () => {
         )}
 
         <div className="settings-field">
+          <label className="settings-label">Format on Save</label>
+          <select
+            className="settings-input"
+            value={values['EDITOR_FORMAT_ON_SAVE'] ?? 'false'}
+            onChange={(e) => handleChange('EDITOR_FORMAT_ON_SAVE', e.target.value)}
+          >
+            <option value="false">Off</option>
+            <option value="true">On (LSP formatter)</option>
+          </select>
+        </div>
+
+        <div className="settings-field">
           <label className="settings-label">Font Size</label>
           <input
             type="number"
